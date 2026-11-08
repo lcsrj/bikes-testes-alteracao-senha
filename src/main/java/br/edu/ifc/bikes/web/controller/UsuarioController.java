@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -50,6 +51,7 @@ public class UsuarioController {
                         content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorMessage.class)))
         })
     @GetMapping("/{id}")
+    @SecurityRequirement(name = "basicAuth")
     public ResponseEntity<UsuarioResponseDTO> getById(@PathVariable Long id) {
         UsuarioResponseDTO usuario = usuarioService.getById(id);
 
@@ -74,6 +76,7 @@ public class UsuarioController {
         })
     //o PATCH deve ser utilizado, no lugar no PUT, quando a atualização for de poucos campos.
     @PatchMapping("/{id}")
+    @SecurityRequirement(name = "basicAuth")
     public ResponseEntity<Void> updatePassword(@PathVariable Long id, @Valid @RequestBody UsuarioSenhaDTO senha){
         usuarioService.updatePassword(id, senha);
         return ResponseEntity.noContent().build();
@@ -86,6 +89,7 @@ public class UsuarioController {
                         array = @ArraySchema(schema = @Schema(implementation = UsuarioResponseDTO.class))))
             })
     @GetMapping
+    @SecurityRequirement(name = "basicAuth")
     public ResponseEntity<List<UsuarioResponseDTO>> getAll(){
         List<UsuarioResponseDTO> usuarios = usuarioService.getAll();
         return ResponseEntity.ok(usuarios);

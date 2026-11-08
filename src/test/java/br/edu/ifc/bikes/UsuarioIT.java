@@ -111,6 +111,7 @@ public class UsuarioIT extends RuntimeException {
         UsuarioResponseDTO responseBody = testClient
                 .get()
                 .uri("/api/v1/usuarios/100")
+                .headers(headers -> headers.setBasicAuth("jose@gmail.com", "123456"))
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(UsuarioResponseDTO.class)
@@ -128,6 +129,7 @@ public class UsuarioIT extends RuntimeException {
         ErrorMessage responseBody = testClient
                 .get()
                 .uri("/api/v1/usuarios/110")
+                .headers(headers -> headers.setBasicAuth("jose@gmail.com", "123456"))
                 .exchange()
                 .expectStatus().isNotFound()
                 .expectBody(ErrorMessage.class)

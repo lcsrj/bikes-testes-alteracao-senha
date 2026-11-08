@@ -6,7 +6,6 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
-import java.time.LocalDateTime;
 import java.util.Objects;
 
 //===lombok
@@ -17,7 +16,7 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "usuarios")
-public class Usuario implements java.io.Serializable {
+public class Usuario extends EntidadeAuditavel implements java.io.Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
@@ -33,11 +32,6 @@ public class Usuario implements java.io.Serializable {
     @Enumerated(EnumType.STRING)
     @Column(name="role", nullable = false, length = 50)
     private Role role = Role.CLIENTE;
-
-    private LocalDateTime dataCriacao;
-    private LocalDateTime dataModificacao;
-    private String criadoPor;
-    private String modificadoPor;
 
     public enum Role {
         ADMIN, CLIENTE;

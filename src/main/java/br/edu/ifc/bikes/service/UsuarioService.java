@@ -12,6 +12,9 @@ import br.edu.ifc.bikes.repository.UsuarioRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 
@@ -21,18 +24,21 @@ public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final UsuarioMapper usuarioMapper;
+    private final PasswordEncoder passwordEncoder;
 
     public UsuarioResponseDTO create(UsuarioRequestDTO usuarioRequestDTO) {
         try {
             Usuario usuario = usuarioMapper.toUsuario(usuarioRequestDTO);
-            return usuarioMapper.toResponse(usuarioRepository.save(usuario));
-        }catch (RuntimeException ex){
+            usuario.setPassword(passwordEncoder.encode(usuarioRequestDTO.password()));
+            return usuarioMapper.toResponse(usuarioRepository.saveAndFlush(usuario));
+        }catch (DataIntegrityViolationException ex){
 
             throw new UsernameUniqueViolationException(String.format("O nome do usuário '%s' já existe", usuarioRequestDTO.username()));
         }
     }
 
     @Transactional()
+    @PreAuthorize("@usuarioAtual.isAdminOuProprio(#id)")
     public UsuarioResponseDTO getById(Long id) {
         return usuarioMapper.toResponse(usuarioRepository.findById(id).orElseThrow(
                 ()->new EntityNotFoundException(String.format("Usuário com id=%d não encontrado", id))
@@ -40,19 +46,21 @@ public class UsuarioService {
     }
 
     @Transactional
+    @PreAuthorize("@usuarioAtual.isAdminOuProprio(#id)")
     public void updatePassword(Long id, UsuarioSenhaDTO senha) {
         Usuario usuario = usuarioRepository.findById(id).orElseThrow(
                 () -> new EntityNotFoundException(String.format("Usuário com id=%d não encontrado", id)));
-        if (!usuario.getPassword().equals(senha.senhaAtual())) {
+        if (!passwordEncoder.matches(senha.senhaAtual(), usuario.getPassword())) {
             throw new PasswordInvalidException("A senha atual não confere");
         }
         if (!senha.novaSenha().equals(senha.confirmaSenha())) {
             throw new PasswordInvalidException("A nova senha e a confirmação não conferem");
         }
-        usuario.setPassword(senha.novaSenha());
+        usuario.setPassword(passwordEncoder.encode(senha.novaSenha()));
         usuarioRepository.save(usuario);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     public List<UsuarioResponseDTO> getAll(){
         return usuarioMapper.toResponse(usuarioRepository.findAll());
     }

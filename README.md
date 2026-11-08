@@ -1,46 +1,129 @@
-# Bikes — Testes de alteração de senha
+# Bikes — Atividade 3: Cadastro de Clientes
 
-Atividade: **1 — Testes (alteração de senha)**. A entrega solicitada é uma única classe de teste: [UsuarioSenhaTest.java](src/test/java/br/edu/ifc/bikes/UsuarioSenhaTest.java).
+Projeto da disciplina com API para cadastro de usuários e clientes. A Atividade 3 adiciona o recurso `Cliente`, vinculado a um usuário cadastrado e autenticado.
 
-O repositório inclui o projeto fornecido e as correções necessárias para executar os testes de ponta a ponta. A classe chama a API HTTP real, usa um banco H2 em memória e verifica tanto os códigos de resposta quanto a persistência da senha. Não utiliza mocks do serviço ou do repositório.
+## Atividade 3
 
-## Entrega da atividade
+### Requisitos
 
-Envie apenas este arquivo:
+- Cliente com `id` (Long), `nome` (String), `cpf` (String) e método `equals`.
+- CPF único e vínculo obrigatório com um usuário.
+- Cadastro permitido somente para usuários autenticados.
+- Cliente pode consultar apenas os próprios dados.
+- Admin pode consultar os dados de todos os clientes.
+- DTOs, Controller, Service e Repository.
+- Validação dos campos de entrada.
+- Documentação com SpringDoc OpenAPI 3.1 e Swagger 3.
+- Campos de auditoria iguais aos de Usuário.
 
-```text
-src/test/java/br/edu/ifc/bikes/UsuarioSenhaTest.java
-```
+### Implementação
 
-Ele pertence ao pacote `br.edu.ifc.bikes` e contém todos os testes de alteração de senha. Para reutilizá-lo no projeto da disciplina, mantenha as dependências de teste, os scripts SQL e a implementação da alteração de senha compatíveis com o contrato abaixo. Os arquivos de produção incluídos aqui permitem executar a atividade neste repositório.
+A entidade `Cliente` possui relacionamento `@OneToOne` com `Usuario`. O banco garante CPF único, usuário único e chave estrangeira obrigatória. Cada usuário pode ter um cliente cadastrado.
 
-## Requisitos e execução
+O cadastro recebe somente `nome` e `cpf`. O usuário associado é obtido da autenticação, e os campos de auditoria são preenchidos pelo servidor.
 
-- JDK 25 ou superior; o projeto compila para Java 25.
-- Acesso à internet na primeira execução para baixar as dependências.
-- Maven Wrapper incluído: não é necessário instalar Maven.
-- Os testes não dependem de MySQL nem de serviços externos.
+| Classe | Responsabilidade |
+| --- | --- |
+| `Cliente` | Entidade, vínculo com usuário, `equals` e `hashCode` |
+| `ClienteRequestDTO` | Dados e validações de entrada |
+| `ClienteResponseDTO` | Dados de resposta, identificação do usuário e auditoria |
+| `ClienteMapper` | Conversão entre entidade e DTOs com MapStruct |
+| `ClienteController` | Rotas HTTP e documentação das operações |
+| `ClienteService` | Cadastro, consultas e controle de acesso |
+| `ClienteRepository` | Persistência e buscas de clientes |
+| `SecurityConfig` | Autenticação HTTP Basic e proteção das rotas |
+| `UsuarioAtual` | Identificação do usuário autenticado |
+| `EntidadeAuditavel` | Campos de auditoria compartilhados por Cliente e Usuário |
+| `JpaAuditingConfig` | Preenchimento automático das datas e do responsável |
 
-Clone o repositório e entre na pasta:
+O método `equals` compara os clientes pelo ID. Objetos novos, sem ID, são distintos. O `hashCode` permanece estável após a persistência.
+
+### Rotas e permissões
+
+| Método | Rota | Permissão | Sucesso |
+| --- | --- | --- | --- |
+| POST | `/api/v1/usuarios` | Público; cria usuário com perfil CLIENTE | 201 |
+| POST | `/api/v1/clientes` | Usuário autenticado; cadastro vinculado à própria conta | 201 |
+| GET | `/api/v1/clientes/me` | Usuário autenticado; consulta do próprio cliente | 200 |
+| GET | `/api/v1/clientes/{id}` | Próprio cliente ou ADMIN | 200 |
+| GET | `/api/v1/clientes` | ADMIN | 200 |
+
+As consultas e a alteração de senha em `/api/v1/usuarios` também exigem autenticação. O próprio usuário ou ADMIN pode consultar um usuário pelo ID e alterar sua senha, informando a senha atual. A listagem de usuários é exclusiva de ADMIN.
+
+### Validação e erros
+
+O nome é aparado antes da validação e deve ter de 2 a 100 caracteres. O CPF deve conter exatamente 11 dígitos, sem pontuação, e ter dígitos verificadores válidos.
+
+| Código HTTP | Situação |
+| --- | --- |
+| 401 | Autenticação ausente ou credenciais inválidas |
+| 403 | Consulta ou operação sem permissão |
+| 404 | Cliente inexistente ou usuário ainda sem cliente cadastrado |
+| 409 | CPF já cadastrado ou usuário que já possui um cliente |
+| 422 | Campos de entrada inválidos |
+
+As respostas de erro usam `ErrorMessage`. Falhas de validação incluem o campo `errors`, com a mensagem correspondente a cada campo inválido.
+
+### Auditoria
+
+Cliente e Usuário compartilham os campos `dataCriacao`, `dataModificacao`, `criadoPor` e `modificadoPor`. As datas são preenchidas pelo Spring Data JPA. O responsável é o e-mail do usuário autenticado; no cadastro público de usuário, o valor é `sistema`.
+
+## Como executar
+
+Requisitos: JDK 25 ou superior e MySQL com o banco `bikes`. O Maven Wrapper está incluído no projeto.
 
 ```bash
 git clone https://github.com/lcsrj/bikes-testes-alteracao-senha.git
 cd bikes-testes-alteracao-senha
 ```
 
-No Windows PowerShell, execute somente a classe da atividade:
+No PowerShell, configure a conexão com o banco e inicie a aplicação:
 
 ```powershell
-java -version
-.\mvnw.cmd -B -ntp test "-Dtest=UsuarioSenhaTest"
+$env:SPRING_DATASOURCE_URL = 'jdbc:mysql://localhost:3306/bikes'
+$env:SPRING_DATASOURCE_USERNAME = 'seu_usuario'
+$env:SPRING_DATASOURCE_PASSWORD = 'sua_senha'
+.\mvnw.cmd spring-boot:run
 ```
 
-No Linux ou macOS:
+No Linux ou macOS, configure as mesmas variáveis de ambiente e execute `bash mvnw spring-boot:run`.
+
+A aplicação usa `spring.jpa.hibernate.ddl-auto=update` para criar e atualizar as tabelas. As senhas são armazenadas com BCrypt. Senhas antigas em texto puro precisam ser migradas para hashes BCrypt antes da autenticação. Em uma base de desenvolvimento descartável, os usuários podem ser recriados pela API.
+
+O cadastro público cria apenas usuários com perfil CLIENTE. A atribuição do perfil ADMIN deve ser feita por manutenção administrativa no banco.
+
+## Cadastro e consulta
+
+Primeiro cadastre o usuário:
 
 ```bash
-java -version
-bash mvnw -B -ntp test -Dtest=UsuarioSenhaTest
+curl -X POST http://localhost:8080/api/v1/usuarios -H "Content-Type: application/json" -d '{"username":"maria@example.com","password":"123456"}'
 ```
+
+Depois cadastre o cliente usando as credenciais do usuário:
+
+```bash
+curl -u maria@example.com:123456 -X POST http://localhost:8080/api/v1/clientes -H "Content-Type: application/json" -d '{"nome":"Maria da Silva","cpf":"52998224725"}'
+```
+
+Consulte os próprios dados:
+
+```bash
+curl -u maria@example.com:123456 http://localhost:8080/api/v1/clientes/me
+```
+
+No PowerShell, use `curl.exe` nesses comandos. A autenticação ocorre em cada requisição pelo cabeçalho HTTP Basic; não há endpoint separado de login. Em produção, utilize HTTPS.
+
+## Documentação da API
+
+- [Swagger UI](http://localhost:8080/docs-bikes.html)
+- [Documento OpenAPI 3.1](http://localhost:8080/docs-bikes)
+
+No Swagger UI, use **Authorize** e informe o e-mail e a senha de um usuário cadastrado. As operações de Cliente documentam as permissões, os DTOs e os códigos de resposta.
+
+## Testes
+
+Os testes de integração chamam a API HTTP em uma porta aleatória e usam H2 em memória. Não é necessário MySQL para executá-los.
 
 Para compilar, executar todos os testes e gerar o JAR:
 
@@ -48,17 +131,29 @@ Para compilar, executar todos os testes e gerar o JAR:
 .\mvnw.cmd -B -ntp clean verify
 ```
 
+No Linux ou macOS:
+
 ```bash
 bash mvnw -B -ntp clean verify
 ```
 
-O resultado esperado é `BUILD SUCCESS`: **24 testes** da classe de alteração de senha e **5 testes** existentes em `UsuarioIT`, totalizando **29**, sem falhas, erros ou testes ignorados. Os relatórios ficam em `target/surefire-reports/`; o pacote é `target/bikes-0.0.1-SNAPSHOT.jar`.
+| Classe | Testes | Cobertura |
+| --- | ---: | --- |
+| `ClienteIT` | 37 | Cadastro, autenticação, permissões, validação, unicidade, vínculo, auditoria e documentação |
+| `ClienteTest` | 2 | Contrato de `equals` e estabilidade do `hashCode` |
+| `UsuarioIT` | 5 | Cadastro e consulta de usuários |
+| `UsuarioSenhaTest` | 24 | Alteração de senha e validação dos três campos |
+| **Total** | **68** | |
 
-Se aparecer `release version 25 not supported`, configure `JAVA_HOME` para um JDK 25 ou superior antes de executar o Wrapper. No PowerShell, por exemplo, use `$env:JAVA_HOME = 'C:\caminho\do\jdk-25'` com o caminho da sua instalação.
+A execução deve terminar com `BUILD SUCCESS`, sem falhas, erros ou testes ignorados. Os relatórios ficam em `target/surefire-reports/`, e o pacote gerado é `target/bikes-0.0.1-SNAPSHOT.jar`.
 
-## Contrato da alteração de senha
+Se ocorrer `release version 25 not supported`, configure `JAVA_HOME` para um JDK 25 ou superior.
 
-Endpoint: `PATCH /api/v1/usuarios/{id}` com `Content-Type: application/json`.
+## Atividades anteriores
+
+### Atividade 1 — Alteração de senha
+
+O endpoint `PATCH /api/v1/usuarios/{id}` recebe a senha atual, a nova senha e sua confirmação:
 
 ```json
 {
@@ -68,153 +163,10 @@ Endpoint: `PATCH /api/v1/usuarios/{id}` com `Content-Type: application/json`.
 }
 ```
 
-Todos os campos são obrigatórios, não podem conter apenas espaços e devem ter exatamente seis caracteres, conforme a atividade. `senhaAtual` deve corresponder à senha armazenada e `novaSenha` deve ser igual a `confirmaSenha`.
+Os três campos são obrigatórios e devem ter exatamente seis caracteres. A senha atual deve conferir, e a nova senha deve ser igual à confirmação. A operação retorna 204 sem corpo quando concluída, 400 quando as senhas não conferem e 422 quando os campos são inválidos. Usuário inexistente retorna 404 quando consultado por ADMIN.
 
-| Situação | HTTP | Comportamento |
-| --- | --- | --- |
-| Dados válidos | 204 | Atualiza a senha e retorna corpo vazio |
-| Senha atual incorreta | 400 | Mantém a senha armazenada |
-| Nova senha e confirmação diferentes | 400 | Mantém a senha armazenada |
-| Campo vazio, em branco, nulo, ausente ou com tamanho inválido | 422 | Rejeita a requisição antes da atualização |
-| Usuário inexistente | 404 | Não cria nem altera usuários |
+### Atividade 2 — Testes de alteração de senha
 
-## Cenários cobertos na única classe
+A classe `UsuarioSenhaTest` verifica sucesso, senha atual incorreta, confirmação diferente e campos inválidos. Também cobre campos ausentes ou nulos, usuário inexistente e rejeição da senha antiga após a alteração. As verificações de persistência usam `PasswordEncoder.matches` para conferir o hash BCrypt.
 
-| Método | Casos | Verificação |
-| --- | ---: | --- |
-| `alterarSenha_DadosValidos_RetornaStatus204SemCorpo` | 1 | `isNoContent()`, corpo vazio, nova senha persistida e outro usuário preservado |
-| `alterarSenha_SenhaAtualIncorreta_RetornaStatus400` | 1 | Senha atual incorreta e senha armazenada preservada |
-| `alterarSenha_ConfirmacaoDiferente_RetornaStatus400` | 1 | Confirmação diferente e senha armazenada preservada |
-| `alterarSenha_CampoInvalido_RetornaStatus422` | 18 | Seis valores inválidos para cada um dos três campos: vazio, espaços, cinco caracteres, sete caracteres, nulo e ausente |
-| `alterarSenha_TodosOsCamposAusentes_RetornaStatus422` | 1 | Objeto JSON vazio e senha preservada |
-| `alterarSenha_UsuarioInexistente_RetornaStatus404` | 1 | ID inexistente e ausência de alteração nos usuários existentes |
-| `alterarSenha_SenhaAntigaAposAlteracao_RetornaStatus400` | 1 | Rejeita a senha antiga após uma alteração e aceita a nova senha como senha atual |
-
-Cada execução recebe dados conhecidos por `@Sql` antes do teste e remove esses dados depois. Os usuários 100, 101 e 102 começam com a senha `123456`. O cliente HTTP usa a porta aleatória fornecida pelo Spring Boot, evitando depender da porta 8080.
-
-O sucesso não desserializa um DTO de resposta: a alteração retorna 204 sem corpo. As verificações de persistência consultam o repositório para comprovar que a alteração ocorreu e que requisições rejeitadas não modificaram a senha.
-
-## Alterações realizadas
-
-- **`UsuarioSenhaTest.java`**: única classe criada para a entrega; inclui os quatro cenários exigidos e casos adicionais de regressão.
-- **`UsuarioSenhaDTO.java`**: requisição com senha atual, nova senha e confirmação, validada com `@NotBlank` e `@Size`.
-- **`PasswordInvalidException.java`**: exceção para senha atual incorreta ou confirmação diferente.
-- **`UsuarioService.java`**: valida as senhas antes de persistir e executa a alteração em uma transação; usuário ausente gera 404.
-- **`UsuarioController.java`**: recebe o novo DTO com `@Valid`, retorna 204 sem corpo e documenta 422 no OpenAPI.
-- **`ApiExceptionHandler.java`**: traduz `PasswordInvalidException` para HTTP 400 no formato de erro existente.
-- **`src/test/resources/application.properties`**: configura H2 em memória e criação/remoção de tabelas para os testes.
-- **`pom.xml`**: alinha WebFlux e Validation à versão gerenciada pelo Spring Boot e inclui `UsuarioIT` na execução padrão do Surefire.
-- **`.github/workflows/tests.yml`**: executa `clean verify` em pushes e pull requests com Java 25 e disponibiliza os relatórios como artefato.
-- **`README.md`**: documenta entrega, execução, contrato, cobertura e alterações; o enunciado original está preservado abaixo.
-
-O código conserva o modelo de armazenamento de senha do projeto acadêmico fornecido. A cobertura desta atividade trata de alteração e validação de senha; não inclui autenticação ou criptografia.
-
-## Executar a aplicação
-
-Os testes usam H2 automaticamente. A aplicação normal mantém a configuração MySQL do projeto: banco `bikes` em `localhost:3306`. Configure credenciais e URL por variáveis de ambiente, se necessário:
-
-```powershell
-$env:SPRING_DATASOURCE_URL = 'jdbc:mysql://localhost:3306/bikes'
-$env:SPRING_DATASOURCE_USERNAME = 'seu_usuario'
-$env:SPRING_DATASOURCE_PASSWORD = 'sua_senha'
-.\mvnw.cmd spring-boot:run
-```
-
-Swagger UI: `http://localhost:8080/docs-bikes.html`. Documento OpenAPI: `http://localhost:8080/docs-bikes`.
-
-## Material e enunciado originais
-
-### Documentação com SpringDoc OpenAPI 3.1 e Swagger 3
-
-- [Site oficial](https://springdoc.org/) - [Configuração](https://springdoc.org/#getting-started)
-
-Dependência (`pom.xml`):
-```
-   <dependency>
-      <groupId>org.springdoc</groupId>
-      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-      <version>3.1.1</version>
-   </dependency>
-```
-
-`Application.properties`
-```
-   springdoc.swagger-ui.path=/docs-bikes.html
-   # Código gerado para acessar a documentação da API no Swagger UI: http://localhost:8080/docs-bikes.html
-   springdoc.api-docs.path=/docs-bikes
-   springdoc.packages-to-scan=br.edu.ifc.bikes.web.controller
-```
-
-- Criar a classe [SpringDocOpenApiConfig](src/main/java/br/edu/ifc/bikes/config/SpringDocOpenApiConfig.java) no pacote `config`.
-
-- Acessar a [documentação](http://localhost:8080/docs-bikes.html).
-
-#### Acrescentando informações em Usuário
-
-- Em [UsuarioController](src/main/java/br/edu/ifc//bikes/web/controller/UsuarioController.java):
-   - No cabeçalho
-   ```
-   @Tag(name = "Usuarios", description = "Contém todas as operações relativas aos recursos para cadastro, edição e leitura de um usuário.")
-   ```
-
-   - Em `create()`
-   ```
-   @Operation(summary = "Criar um novo usuário", description = "Recurso para criar um novo usuário",
-            responses = {
-                @ApiResponse(responseCode = "201", description = "Recurso criado com sucesso",
-                        content = @Content(mediaType = "application/json", schema = @Schema(implementation = UsuarioResponseDTO.class))),
-                @ApiResponse(responseCode = "409", description = "Usuário e-mail já cadastrado no sistema",
-                        content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorMessage.class))),
-                @ApiResponse(responseCode = "422", description = "Recurso não processado por dados de entrada invalidos",
-                        content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorMessage.class)))
-            })
-   ```
-
-   - Em `getById()`
-   ```
-   @Operation(summary = "Recuperar um usuário pelo id", description = "Recuperar um usuário pelo id",
-            responses = {
-                    @ApiResponse(responseCode = "200", description = "Recurso recuperado com sucesso",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = UsuarioResponseDTO.class))),
-                    @ApiResponse(responseCode = "404", description = "Recurso não encontrado",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorMessage.class)))
-            })
-   ```
-
-   - Em `updatePassword()`
-   ```
-   @Operation(summary = "Atualizar senha", description = "Atualizar senha",
-            responses = {
-                    @ApiResponse(responseCode = "204", description = "Senha atualizada com sucesso",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = Void.class))),
-                    @ApiResponse(responseCode = "400", description = "Senha não confere",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorMessage.class))),
-                    @ApiResponse(responseCode = "404", description = "Recurso não encontrado",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorMessage.class)))
-            })
-   ```
-
-   - Em `getAll()`
-   ```
-   @Operation(summary = "Listar todos os usuários", description = "Listar todos os usuários",
-            responses = {
-                    @ApiResponse(responseCode = "200", description = "Lista com todos os usuários cadastrados",
-                                    content = @Content(mediaType = "application/json",
-                                    array = @ArraySchema(schema = @Schema(implementation = UsuarioResponseDto.class))))
-            })
-   ```
-  
-## Atividade 01 - Alterar Senha
-
-  - Modificar a **alteração de senha** para que, além do campo `nova senha`, seja informado também a `confirmação de senha` e a `senha atual`.
-  - Será necessário criar a classe `UsuarioSenhaDTO.java` para requisição.
-    - Não esquecer de validar os campos.
-  - Fazer o tratamento de exceção criando a classe `PasswordInvalidException` para validar a senha atual e comparar a nova senha com a confirmação.
-
-
-## Atividade 02 - Teste de Alterar Senha
-
-  - Desenvolver métodos de teste para as 04 possibilidades: sucesso, senha atual inválida, senha e confirmação não conferem e campos inválidos (vazios, senhas com menos e mais que 6 caracteres).
-      - Observar (no Controller) que alteração de senha não retorna um corpo de mensagem, ou seja, o teste não terá retorno.
-          - Como não tem retorno, os testes de valores não são necessários.
-      - O método para o status será o `isNoContent()`.
+Os testes de Usuário foram adaptados para enviar autenticação HTTP Basic. Após uma alteração de senha, as requisições seguintes usam a nova senha.

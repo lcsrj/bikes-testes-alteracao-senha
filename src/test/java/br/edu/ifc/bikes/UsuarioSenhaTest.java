@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
@@ -30,10 +31,16 @@ public class UsuarioSenhaTest {
     @Autowired
     private UsuarioRepository usuarioRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    private String senhaAutenticacao;
+
     private WebTestClient testClient;
 
     @BeforeEach
     void setUp() {
+        senhaAutenticacao = "123456";
         testClient = WebTestClient.bindToServer()
                 .baseUrl("http://localhost:" + port)
                 .build();
@@ -52,7 +59,7 @@ public class UsuarioSenhaTest {
     @Test
     void alterarSenha_SenhaAtualIncorreta_RetornaStatus400() {
         alterarSenha(100L, senhas("000000", "654321", "654321"))
-                .expectStatus().isBadRequest();
+                .expectStatus().isBadRequest().expectBody(Void.class);
 
         assertSenha(100L, "123456");
     }
@@ -60,7 +67,7 @@ public class UsuarioSenhaTest {
     @Test
     void alterarSenha_ConfirmacaoDiferente_RetornaStatus400() {
         alterarSenha(100L, senhas("123456", "654321", "654322"))
-                .expectStatus().isBadRequest();
+                .expectStatus().isBadRequest().expectBody(Void.class);
 
         assertSenha(100L, "123456");
     }
@@ -76,7 +83,7 @@ public class UsuarioSenhaTest {
             body.put(campo, valor);
         }
 
-        alterarSenha(100L, body).expectStatus().isEqualTo(422);
+        alterarSenha(100L, body).expectStatus().isEqualTo(422).expectBody(Void.class);
 
         assertSenha(100L, "123456");
     }
@@ -94,7 +101,7 @@ public class UsuarioSenhaTest {
 
     @Test
     void alterarSenha_TodosOsCamposAusentes_RetornaStatus422() {
-        alterarSenha(100L, Map.of()).expectStatus().isEqualTo(422);
+        alterarSenha(100L, Map.of()).expectStatus().isEqualTo(422).expectBody(Void.class);
 
         assertSenha(100L, "123456");
     }
@@ -102,7 +109,7 @@ public class UsuarioSenhaTest {
     @Test
     void alterarSenha_UsuarioInexistente_RetornaStatus404() {
         alterarSenha(110L, senhas("123456", "654321", "654321"))
-                .expectStatus().isNotFound();
+                .expectStatus().isNotFound().expectBody(Void.class);
 
         assertThat(usuarioRepository.findById(110L)).isEmpty();
         assertSenha(100L, "123456");
@@ -114,8 +121,10 @@ public class UsuarioSenhaTest {
                 .expectStatus().isNoContent()
                 .expectBody().isEmpty();
 
+        senhaAutenticacao = "654321";
+
         alterarSenha(100L, senhas("123456", "111111", "111111"))
-                .expectStatus().isBadRequest();
+                .expectStatus().isBadRequest().expectBody(Void.class);
         assertSenha(100L, "654321");
 
         alterarSenha(100L, senhas("654321", "111111", "111111"))
@@ -126,6 +135,7 @@ public class UsuarioSenhaTest {
 
     private WebTestClient.ResponseSpec alterarSenha(Long id, Map<String, ?> body) {
         return testClient.patch().uri("/api/v1/usuarios/{id}", id)
+                .headers(headers -> headers.setBasicAuth("jose@gmail.com", senhaAutenticacao))
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(body).exchange();
     }
@@ -139,7 +149,8 @@ public class UsuarioSenhaTest {
     }
 
     private void assertSenha(Long id, String senha) {
-        assertThat(usuarioRepository.findById(id).orElseThrow().getPassword())
-                .isEqualTo(senha);
+        String hash = usuarioRepository.findById(id).orElseThrow().getPassword();
+        assertThat(hash).isNotEqualTo(senha);
+        assertThat(passwordEncoder.matches(senha, hash)).isTrue();
     }
 }
