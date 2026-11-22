@@ -60,6 +60,8 @@ Configure o resultado como variável de ambiente antes de iniciar a aplicação.
 
 A validade padrão do token é uma hora, configurável pela propriedade `bikes.jwt.duracao` em formato ISO-8601, por exemplo `PT1H`. A assinatura, o emissor e a expiração são validados, e o perfil atual do usuário é consultado no banco em cada requisição. HTTP Basic continua disponível para compatibilidade com as atividades anteriores; os exemplos do projeto final utilizam JWT.
 
+As respostas de autenticação obrigatória anunciam os desafios Basic e Bearer no cabeçalho `WWW-Authenticate`, permitindo também clientes que aguardam o desafio antes de enviar as credenciais Basic.
+
 ## Autenticação e perfis
 
 O cadastro de usuário é público:
@@ -223,6 +225,8 @@ Com tarifa de R$ 10,00/h, 30 minutos custam R$ 5,00 e 2 horas custam R$ 20,00. U
 
 Reservas, devoluções e alterações de status usam transações e bloqueios de escrita. A coluna única `bicicleta_ativa_id` oferece uma garantia adicional no banco contra duas locações ativas da mesma bicicleta. Na devolução, esse vínculo é liberado e o histórico continua associado à bicicleta.
 
+O horário de retirada é registrado após a obtenção do bloqueio da bicicleta. O tempo de espera pelo bloqueio não entra na duração nem na cobrança. A previsão de devolução e a validade do cartão são verificadas nesse mesmo instante.
+
 ADMIN pode mudar uma bicicleta livre para MANUTENCAO e liberá-la com LIVRE pela rota de status. Uma bicicleta em locação não pode ser liberada manualmente. OCUPADA é definido somente pelo fluxo de locação.
 
 ## Validação e documentação
@@ -259,14 +263,16 @@ bash mvnw -B -ntp clean verify
 
 A suíte mantém os testes de Usuário e Cliente e inclui `LocadoraIT` para os requisitos finais. A cobertura abrange JWT e expiração, perfis de acesso, frota, disponibilidade, cartão, locação, devolução, cálculo de valor, manutenção, relatório, restrições do banco e requisições concorrentes de locação e devolução.
 
+Os testes de regressão também cobrem a negociação HTTP Basic, a espera real pelo bloqueio da bicicleta e o vencimento da previsão de devolução ou do cartão durante essa espera.
+
 | Classe | Testes |
 | --- | ---: |
 | `UsuarioIT` | 5 |
 | `UsuarioSenhaTest` | 24 |
 | `ClienteIT` | 37 |
 | `ClienteTest` | 2 |
-| `LocadoraIT` | 47 |
-| **Total** | **115** |
+| `LocadoraIT` | 54 |
+| **Total** | **122** |
 
 A execução validada termina com `BUILD SUCCESS`, sem falhas, erros ou testes ignorados.
 

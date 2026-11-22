@@ -47,14 +47,6 @@ public class LocacaoService {
     public LocacaoResponseDTO create(LocacaoRequestDTO request) {
         Cliente cliente = clienteRepository.findByUsuarioId(usuarioAtual.get().getId())
                 .orElseThrow(() -> new NegocioException("Cadastre seus dados de cliente antes de solicitar uma locação"));
-        LocalDateTime retirada = agora();
-        if (!request.dataDevolucaoPrevista().isAfter(retirada)) {
-            throw new DadosInvalidosException("A devolução prevista deve ser posterior à retirada");
-        }
-        CartaoRequestDTO cartao = request.cartao();
-        if (YearMonth.of(cartao.anoValidade(), cartao.mesValidade()).isBefore(YearMonth.now(clock))) {
-            throw new DadosInvalidosException("O cartão está vencido");
-        }
         Bicicleta bicicleta = request.codigoBicicleta() == null
                 ? bicicletaRepository.findFirstByStatusOrderByIdAsc(Bicicleta.Status.LIVRE)
                     .orElseThrow(() -> new NegocioException("Não há bicicletas disponíveis"))
@@ -62,6 +54,14 @@ public class LocacaoService {
                     .orElseThrow(() -> new EntityNotFoundException("Bicicleta não encontrada"));
         if (bicicleta.getStatus() != Bicicleta.Status.LIVRE) {
             throw new NegocioException("A bicicleta não está disponível");
+        }
+        LocalDateTime retirada = agora();
+        if (!request.dataDevolucaoPrevista().isAfter(retirada)) {
+            throw new DadosInvalidosException("A devolução prevista deve ser posterior à retirada");
+        }
+        CartaoRequestDTO cartao = request.cartao();
+        if (YearMonth.of(cartao.anoValidade(), cartao.mesValidade()).isBefore(YearMonth.from(retirada))) {
+            throw new DadosInvalidosException("O cartão está vencido");
         }
         bicicleta.setStatus(Bicicleta.Status.OCUPADA);
         Locacao locacao = new Locacao();

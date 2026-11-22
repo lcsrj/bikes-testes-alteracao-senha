@@ -21,8 +21,16 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.test.web.reactive.server.EntityExchangeResult;
+import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
+import java.net.Authenticator;
+import java.net.PasswordAuthentication;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -31,8 +39,10 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.awaitility.Awaitility.await;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "spring.datasource.url=jdbc:h2:mem:bikes-locadora-test;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000")
 @Import(LocadoraIT.TempoConfig.class)
 @Sql(scripts = "/sql/usuarios/usuarios-insert.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 @Sql(scripts = "/sql/usuarios/usuarios-delete.sql", executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
@@ -48,6 +58,7 @@ class LocadoraIT {
     @Autowired ClienteRepository clientes;
     @Autowired UsuarioRepository usuarios;
     @Autowired JdbcTemplate jdbc;
+    @Autowired ObjectMapper json;
     WebTestClient client;
     Map<String, String> tokens = new ConcurrentHashMap<>();
 
@@ -65,6 +76,77 @@ class LocadoraIT {
         assertThat(token.split("\\.")).hasSize(3);
         client.get().uri("/api/v1/bicicletas").headers(h -> h.setBearerAuth(token))
                 .exchange().expectStatus().isOk().expectBodyList(BicicletaResponseDTO.class).hasSize(0);
+    }
+
+    @Test
+    void basic_AnunciaBasicEBearerNoDesafio() {
+        client.get().uri("/api/v1/bicicletas").exchange().expectStatus().isUnauthorized()
+                .expectHeader().valueEquals("WWW-Authenticate", "Basic realm=\"Bikes API\"", "Bearer realm=\"Bikes API\"")
+                .expectBody(Void.class);
+    }
+
+    @Test
+    void basic_AutenticaQuandoClienteAguardaDesafio() throws Exception {
+        try (HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10))
+                .authenticator(new Authenticator() {
+                    @Override
+                    protected PasswordAuthentication getPasswordAuthentication() {
+                        return new PasswordAuthentication(ADMIN, "123456".toCharArray());
+                    }
+                }).build()) {
+            HttpResponse<String> response = http.send(HttpRequest.newBuilder(
+                            URI.create("http://localhost:" + port + "/api/v1/bicicletas"))
+                    .timeout(Duration.ofSeconds(15)).GET().build(), HttpResponse.BodyHandlers.ofString());
+            assertThat(response.statusCode()).isEqualTo(200);
+            assertThat(response.body()).isEqualTo("[]");
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void locacao_EsperaBloqueioSemCobrarTempoDeEspera(boolean codigoExplicito) throws Exception {
+        cadastrarCliente(MARIA);
+        cadastrarBicicleta("BIKE-001");
+        Map<String, Object> body = pedido(codigoExplicito ? "BIKE-001" : null);
+        EntityExchangeResult<byte[]> response = alugarAposEspera(body, Duration.ofMinutes(10));
+        assertThat(response.getStatus().value()).isEqualTo(201);
+        LocacaoResponseDTO locacao = json.readValue(response.getResponseBody(), LocacaoResponseDTO.class);
+        assertThat(locacao.dataRetirada()).isEqualTo(LocalDateTime.now(clock));
+        assertThat(locacoes.findById(locacao.id()).orElseThrow().getDataRetirada()).isEqualTo(LocalDateTime.now(clock));
+
+        avancar(Duration.ofMinutes(30));
+        devolver(MARIA, locacao.id(), false).expectStatus().isOk().expectBody()
+                .jsonPath("$.duracaoSegundos").isEqualTo(1800)
+                .jsonPath("$.valor").isEqualTo(5.0);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void locacao_EsperaBloqueioRevalidaDevolucaoPrevista(boolean codigoExplicito) throws Exception {
+        cadastrarCliente(MARIA);
+        cadastrarBicicleta("BIKE-001");
+        Map<String, Object> body = pedido(codigoExplicito ? "BIKE-001" : null);
+        body.put("dataDevolucaoPrevista", LocalDateTime.now(clock).plusMinutes(5).toString());
+        EntityExchangeResult<byte[]> response = alugarAposEspera(body, Duration.ofMinutes(10));
+        assertThat(response.getStatus().value()).isEqualTo(422);
+        assertThat(locacoes.count()).isZero();
+        assertThat(bicicletas.findByCodigo("BIKE-001").orElseThrow().getStatus()).isEqualTo(Bicicleta.Status.LIVRE);
+    }
+
+    @Test
+    void locacao_EsperaBloqueioRevalidaValidadeDoCartao() throws Exception {
+        avancar(Duration.ofDays(30).plusHours(11).plusMinutes(55));
+        cadastrarCliente(MARIA);
+        cadastrarBicicleta("BIKE-001");
+        Map<String, Object> body = pedido("BIKE-001");
+        Map<String, Object> cartao = new HashMap<>(cartao());
+        cartao.put("mesValidade", 1);
+        cartao.put("anoValidade", 2030);
+        body.put("cartao", cartao);
+        EntityExchangeResult<byte[]> response = alugarAposEspera(body, Duration.ofMinutes(10));
+        assertThat(response.getStatus().value()).isEqualTo(422);
+        assertThat(locacoes.count()).isZero();
+        assertThat(bicicletas.findByCodigo("BIKE-001").orElseThrow().getStatus()).isEqualTo(Bicicleta.Status.LIVRE);
     }
 
     @Test
@@ -501,6 +583,27 @@ class LocadoraIT {
     }
 
     void avancar(Duration duration) { clock.advance(duration); tokens.clear(); }
+
+    EntityExchangeResult<byte[]> alugarAposEspera(Map<String, Object> body, Duration espera) throws Exception {
+        String accessToken = token(MARIA);
+        try (ExecutorService executor = Executors.newSingleThreadExecutor();
+                var connection = Objects.requireNonNull(jdbc.getDataSource()).getConnection()) {
+            connection.setAutoCommit(false);
+            try (var statement = connection.prepareStatement("select id from bicicletas where codigo = 'BIKE-001' for update");
+                    var rows = statement.executeQuery()) {
+                assertThat(rows.next()).isTrue();
+            }
+            Future<EntityExchangeResult<byte[]>> response = executor.submit(() -> client.post().uri("/api/v1/locacoes")
+                    .headers(h -> h.setBearerAuth(accessToken)).contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(body).exchange().expectBody().returnResult());
+            await().pollInterval(Duration.ofMillis(20)).atMost(Duration.ofSeconds(5)).until(() ->
+                    jdbc.queryForObject("select count(*) from information_schema.sessions where session_state = 'BLOCKED'",
+                            Long.class) > 0);
+            avancar(espera);
+            connection.commit();
+            return response.get(15, TimeUnit.SECONDS);
+        }
+    }
 
     List<Integer> simultaneo(Supplier<Integer> first, Supplier<Integer> second) throws Exception {
         CountDownLatch inicio = new CountDownLatch(1);

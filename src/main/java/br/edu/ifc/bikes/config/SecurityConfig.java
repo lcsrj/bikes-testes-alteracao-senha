@@ -46,7 +46,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper, UserDetailsService users) throws Exception {
         var entryPoint = (org.springframework.security.web.AuthenticationEntryPoint) (request, response, ex) -> {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            response.setHeader("WWW-Authenticate", "Bearer realm=\"Bikes API\"");
+            response.setHeader("WWW-Authenticate", "Basic realm=\"Bikes API\"");
+            response.addHeader("WWW-Authenticate", "Bearer realm=\"Bikes API\"");
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             objectMapper.writeValue(response.getOutputStream(),
                     new ErrorMessage(request, HttpStatus.UNAUTHORIZED, "Autenticação obrigatória ou credenciais inválidas"));
