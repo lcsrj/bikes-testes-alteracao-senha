@@ -15,7 +15,9 @@ public class SpringDocOpenApiConfig {
     public OpenAPI openAPI(){
         return new OpenAPI()
                 .components(new Components().addSecuritySchemes("basicAuth",
-                        new SecurityScheme().type(SecurityScheme.Type.HTTP).scheme("basic")))
+                        new SecurityScheme().type(SecurityScheme.Type.HTTP).scheme("basic"))
+                        .addSecuritySchemes("bearerAuth", new SecurityScheme().type(SecurityScheme.Type.HTTP)
+                                .scheme("bearer").bearerFormat("JWT")))
                 .info(new Info()
                         .title("Bikes API")
                         .description("API para gestão de locadora de bikes.")

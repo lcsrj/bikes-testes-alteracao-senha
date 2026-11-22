@@ -21,6 +21,7 @@ import java.util.List;
 
 @Tag(name = "Clientes", description = "Cadastro vinculado ao usuário autenticado e consulta de clientes")
 @SecurityRequirement(name = "basicAuth")
+@SecurityRequirement(name = "bearerAuth")
 @ApiResponse(responseCode = "401", description = "Autenticação obrigatória ou credenciais inválidas",
         content = @Content(schema = @Schema(implementation = ErrorMessage.class)))
 @RestController
@@ -31,7 +32,7 @@ public class ClienteController {
     private final ClienteService clienteService;
 
     @Operation(summary = "Cadastrar o cliente do usuário autenticado",
-            description = "O vínculo com usuário é obtido da autenticação. Cada usuário pode ter apenas um cliente.",
+            description = "Acesso exclusivo de CLIENTE. O vínculo é obtido da autenticação; cada usuário possui apenas um cliente.",
             responses = {
                     @ApiResponse(responseCode = "201", description = "Cliente criado",
                             content = @Content(schema = @Schema(implementation = ClienteResponseDTO.class))),
@@ -58,7 +59,7 @@ public class ClienteController {
     }
 
     @Operation(summary = "Consultar cliente pelo id",
-            description = "Cliente consulta apenas os próprios dados. ADMIN pode consultar qualquer cliente.",
+            description = "Acesso exclusivo de ADMIN. O cliente recupera seus dados pela rota /me.",
             responses = {
                     @ApiResponse(responseCode = "200", description = "Cliente encontrado",
                             content = @Content(schema = @Schema(implementation = ClienteResponseDTO.class))),

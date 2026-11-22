@@ -22,6 +22,12 @@ public class Cliente extends EntidadeAuditavel implements java.io.Serializable {
     @Column(nullable = false, unique = true, length = 11)
     private String cpf;
 
+    @Column(length = 20)
+    private String telefone;
+
+    @Column(length = 100)
+    private String email;
+
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "usuario_id", nullable = false, unique = true)
     private Usuario usuario;

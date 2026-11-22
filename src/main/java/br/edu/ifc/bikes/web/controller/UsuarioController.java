@@ -52,6 +52,7 @@ public class UsuarioController {
         })
     @GetMapping("/{id}")
     @SecurityRequirement(name = "basicAuth")
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<UsuarioResponseDTO> getById(@PathVariable Long id) {
         UsuarioResponseDTO usuario = usuarioService.getById(id);
 
@@ -77,6 +78,7 @@ public class UsuarioController {
     //o PATCH deve ser utilizado, no lugar no PUT, quando a atualização for de poucos campos.
     @PatchMapping("/{id}")
     @SecurityRequirement(name = "basicAuth")
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<Void> updatePassword(@PathVariable Long id, @Valid @RequestBody UsuarioSenhaDTO senha){
         usuarioService.updatePassword(id, senha);
         return ResponseEntity.noContent().build();
@@ -90,6 +92,7 @@ public class UsuarioController {
             })
     @GetMapping
     @SecurityRequirement(name = "basicAuth")
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<List<UsuarioResponseDTO>> getAll(){
         List<UsuarioResponseDTO> usuarios = usuarioService.getAll();
         return ResponseEntity.ok(usuarios);

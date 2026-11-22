@@ -16,6 +16,10 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.server.resource.BearerTokenErrorCodes;
 import tools.jackson.databind.ObjectMapper;
 
 @Configuration
@@ -39,13 +43,19 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper, UserDetailsService users) throws Exception {
         var entryPoint = (org.springframework.security.web.AuthenticationEntryPoint) (request, response, ex) -> {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            response.setHeader("WWW-Authenticate", "Basic realm=\"Bikes API\"");
+            response.setHeader("WWW-Authenticate", "Bearer realm=\"Bikes API\"");
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             objectMapper.writeValue(response.getOutputStream(),
                     new ErrorMessage(request, HttpStatus.UNAUTHORIZED, "Autenticação obrigatória ou credenciais inválidas"));
+        };
+        AccessDeniedHandler accessDenied = (request, response, ex) -> {
+            response.setStatus(HttpStatus.FORBIDDEN.value());
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            objectMapper.writeValue(response.getOutputStream(),
+                    new ErrorMessage(request, HttpStatus.FORBIDDEN, "Acesso não permitido"));
         };
         return http
                 // API sem sessão: credenciais são enviadas explicitamente no cabeçalho Authorization.
@@ -54,17 +64,24 @@ public class SecurityConfig {
                 .requestCache(cache -> cache.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/docs-bikes", "/docs-bikes/**", "/docs-bikes.html", "/swagger-ui/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/usuarios").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/usuarios", "/api/v1/auth/login").permitAll()
+                        .requestMatchers("/api/v1/bicicletas/**", "/api/v1/relatorios/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/clientes", "/api/v1/locacoes").hasRole("CLIENTE")
                         .anyRequest().authenticated())
                 .httpBasic(basic -> basic.authenticationEntryPoint(entryPoint))
+                .oauth2ResourceServer(oauth -> oauth
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(token -> {
+                            try {
+                                var user = users.loadUserByUsername(token.getSubject());
+                                return new JwtAuthenticationToken(token, user.getAuthorities(), user.getUsername());
+                            } catch (UsernameNotFoundException ex) {
+                                throw new OAuth2AuthenticationException(BearerTokenErrorCodes.INVALID_TOKEN);
+                            }
+                        }))
+                        .authenticationEntryPoint(entryPoint).accessDeniedHandler(accessDenied))
                 .exceptionHandling(errors -> errors
                         .authenticationEntryPoint(entryPoint)
-                        .accessDeniedHandler((request, response, ex) -> {
-                            response.setStatus(HttpStatus.FORBIDDEN.value());
-                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                            objectMapper.writeValue(response.getOutputStream(),
-                                    new ErrorMessage(request, HttpStatus.FORBIDDEN, "Acesso não permitido"));
-                        }))
+                        .accessDeniedHandler(accessDenied))
                 .build();
     }
 }

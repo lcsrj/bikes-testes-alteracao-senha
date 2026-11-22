@@ -10,5 +10,7 @@ public record ClienteResponseDTO(
         LocalDateTime dataCriacao,
         LocalDateTime dataModificacao,
         String criadoPor,
-        String modificadoPor
+        String modificadoPor,
+        String telefone,
+        String email
 ) { }

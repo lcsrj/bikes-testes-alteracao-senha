@@ -11,7 +11,6 @@ import br.edu.ifc.bikes.repository.ClienteRepository;
 import br.edu.ifc.bikes.security.UsuarioAtual;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +28,7 @@ public class ClienteService {
     private final UsuarioAtual usuarioAtual;
 
     @Transactional
+    @PreAuthorize("hasRole('CLIENTE')")
     public ClienteResponseDTO create(ClienteRequestDTO request) {
         Usuario usuario = usuarioAtual.get();
         if (clienteRepository.existsByUsuarioId(usuario.getId())) {
@@ -52,13 +52,10 @@ public class ClienteService {
                 .orElseThrow(() -> new EntityNotFoundException("Cliente não cadastrado para o usuário autenticado")));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     public ClienteResponseDTO getById(Long id) {
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException(String.format("Cliente com id=%d não encontrado", id)));
-        Usuario usuario = usuarioAtual.get();
-        if (usuario.getRole() != Usuario.Role.ADMIN && !cliente.getUsuario().getId().equals(usuario.getId())) {
-            throw new AccessDeniedException("O cliente só pode consultar os seus próprios dados");
-        }
         return clienteMapper.toResponse(cliente);
     }
 

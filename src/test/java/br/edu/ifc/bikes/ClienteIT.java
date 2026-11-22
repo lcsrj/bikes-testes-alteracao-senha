@@ -216,10 +216,8 @@ class ClienteIT {
     @Test
     void consultar_ProprioCliente_Retorna200() {
         ClienteResponseDTO cliente = cadastrar("maria@gmail.com", CPF_MARIA);
-        for (String path : List.of("/api/v1/clientes/me", "/api/v1/clientes/" + cliente.id())) {
-            client.get().uri(path).headers(h -> h.setBasicAuth("maria@gmail.com", "123456"))
-                    .exchange().expectStatus().isOk().expectBody(ClienteResponseDTO.class).isEqualTo(cliente);
-        }
+        client.get().uri("/api/v1/clientes/me").headers(h -> h.setBasicAuth("maria@gmail.com", "123456"))
+                .exchange().expectStatus().isOk().expectBody(ClienteResponseDTO.class).isEqualTo(cliente);
     }
 
     @Test
@@ -302,7 +300,8 @@ class ClienteIT {
                 .expectBody().jsonPath("$.openapi").value(value -> assertThat(value.toString()).startsWith("3.1."))
                 .jsonPath("$.components.securitySchemes.basicAuth.type").isEqualTo("http")
                 .jsonPath("$.components.securitySchemes.basicAuth.scheme").isEqualTo("basic")
-                .jsonPath("$.paths['/api/v1/clientes'].post.security[0].basicAuth").isArray()
+                .jsonPath("$.paths['/api/v1/clientes'].post.security[*].basicAuth").isNotEmpty()
+                .jsonPath("$.paths['/api/v1/clientes'].post.security[*].bearerAuth").isNotEmpty()
                 .jsonPath("$.paths['/api/v1/clientes'].post.responses['401']").exists()
                 .jsonPath("$.paths['/api/v1/clientes/me']").exists()
                 .jsonPath("$.paths['/api/v1/clientes/{id}'].get.responses['403']").exists();

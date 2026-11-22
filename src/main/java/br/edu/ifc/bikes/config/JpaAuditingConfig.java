@@ -11,6 +11,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Optional;
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.time.temporal.ChronoUnit;
 
 @Configuration
@@ -18,9 +19,9 @@ import java.time.temporal.ChronoUnit;
 public class JpaAuditingConfig {
 
     @Bean
-    public DateTimeProvider auditingDateTimeProvider() {
+    public DateTimeProvider auditingDateTimeProvider(Clock clock) {
         // Os timestamps persistidos pelo JPA têm precisão de microssegundos.
-        return () -> Optional.of(LocalDateTime.now().truncatedTo(ChronoUnit.MICROS));
+        return () -> Optional.of(LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS));
     }
 
     @Bean
