@@ -46,7 +46,9 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper, UserDetailsService users) throws Exception {
         var entryPoint = (org.springframework.security.web.AuthenticationEntryPoint) (request, response, ex) -> {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            response.setHeader("WWW-Authenticate", "Basic realm=\"Bikes API\"");
+            if (!"XMLHttpRequest".equals(request.getHeader("X-Requested-With"))) {
+                response.setHeader("WWW-Authenticate", "Basic realm=\"Bikes API\"");
+            }
             response.addHeader("WWW-Authenticate", "Bearer realm=\"Bikes API\"");
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             objectMapper.writeValue(response.getOutputStream(),
@@ -64,6 +66,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .requestCache(cache -> cache.disable())
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET, "/", "/index.html", "/assets/**", "/favicon.svg", "/api/v1/configuracao").permitAll()
                         .requestMatchers("/docs-bikes", "/docs-bikes/**", "/docs-bikes.html", "/swagger-ui/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/usuarios", "/api/v1/auth/login").permitAll()
                         .requestMatchers("/api/v1/bicicletas/**", "/api/v1/relatorios/**").hasRole("ADMIN")

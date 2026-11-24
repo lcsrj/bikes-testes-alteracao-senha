@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="description" content="Bikes: sua locadora de bicicletas. Cadastre-se, pedale e acompanhe suas locações.">
+  <title>Bikes · Locadora de bicicletas</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/assets/fonts/manrope.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script type="module" src="/assets/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Ir para o conteúdo</a>
+  <div id="app"><main id="main" class="initial-load"><p>Preparando sua próxima pedalada…</p></main></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <dialog id="dialog" aria-labelledby="dialog-title"></dialog>
+  <noscript>Ative o JavaScript para acessar a locadora. A documentação da API está em <a href="/docs-bikes.html">Swagger</a>.</noscript>
+</body>
+</html>

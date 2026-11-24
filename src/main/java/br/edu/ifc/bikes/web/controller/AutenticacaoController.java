@@ -2,6 +2,8 @@ package br.edu.ifc.bikes.web.controller;
 
 import br.edu.ifc.bikes.dto.LoginRequestDTO;
 import br.edu.ifc.bikes.dto.TokenResponseDTO;
+import br.edu.ifc.bikes.dto.UsuarioResponseDTO;
+import br.edu.ifc.bikes.security.UsuarioAtual;
 import br.edu.ifc.bikes.service.AutenticacaoService;
 import br.edu.ifc.bikes.web.exception.ErrorMessage;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,6 +22,15 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Autenticação", description = "Login e emissão de token JWT")
 public class AutenticacaoController {
     private final AutenticacaoService autenticacaoService;
+    private final UsuarioAtual usuarioAtual;
+
+    @GetMapping("/me")
+    @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Consultar a conta autenticada")
+    public UsuarioResponseDTO me() {
+        var usuario = usuarioAtual.get();
+        return new UsuarioResponseDTO(usuario.getId(), usuario.getUsername(), usuario.getRole().name());
+    }
 
     @PostMapping("/login")
     @Operation(summary = "Autenticar e obter um JWT", description = "Envie o token em Authorization: Bearer <token>.")

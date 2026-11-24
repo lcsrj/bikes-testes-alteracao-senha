@@ -34,3 +34,8 @@ build/
 
 # Logs
 *.log
+
+# Testes da interface
+node_modules/
+test-results/
+playwright-report/

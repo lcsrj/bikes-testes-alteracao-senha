@@ -1,0 +1,12 @@
+{
+  "name": "bikes-interface-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/ui.test.mjs",
+    "test:e2e": "node tests/browser.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.58.2"
+  }
+}

@@ -21,9 +21,23 @@ jobs:
           cache: maven
       - name: Compilar e executar todos os testes
         run: bash mvnw -B -ntp clean verify
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Preparar testes da interface
+        run: npm ci
+      - name: Verificar formatação de dados e proteção de conteúdo
+        run: npm test
+      - name: Instalar navegador de testes
+        run: npx playwright install --with-deps chromium
+      - name: Testar fluxos completos da interface
+        run: npm run test:e2e
       - name: Salvar relatórios de testes
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: relatorios-testes
-          path: target/surefire-reports/
+          path: |
+            target/surefire-reports/
+            target/ui-e2e/

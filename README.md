@@ -2,13 +2,14 @@
 
 [![Testes](https://github.com/lcsrj/bikes-testes-alteracao-senha/actions/workflows/tests.yml/badge.svg)](https://github.com/lcsrj/bikes-testes-alteracao-senha/actions/workflows/tests.yml)
 
-API REST para gerenciamento de uma locadora de bicicletas. Permite cadastrar usuários e clientes, administrar a frota, solicitar locações, registrar devoluções, calcular valores e consultar relatórios.
+Sistema web com API REST para gerenciamento de uma locadora de bicicletas. Permite cadastrar usuários e clientes, administrar a frota, solicitar locações, registrar devoluções, calcular valores e consultar relatórios.
 
 O projeto final dá continuidade às atividades anteriores e implementa os requisitos **4, 5, 6, 7 e 8**, com autenticação JWT, controle de acesso, auditoria, validação e documentação OpenAPI 3.1 / Swagger 3.
 
 ## Sumário
 
 - [Visão geral](#visão-geral)
+- [Interface web](#interface-web)
 - [Requisitos e atividades](#requisitos-e-atividades)
 - [Tecnologias](#tecnologias)
 - [Arquitetura e estrutura](#arquitetura-e-estrutura)
@@ -54,9 +55,62 @@ A frota é cadastrada por ADMIN. Quando uma locação é confirmada, a bicicleta
 
 | Serviço | Endereço |
 | --- | --- |
+| Interface web | [http://localhost:8080](http://localhost:8080) |
 | Base da API | `http://localhost:8080/api/v1` |
 | Swagger UI | [http://localhost:8080/docs-bikes.html](http://localhost:8080/docs-bikes.html) |
 | OpenAPI JSON | [http://localhost:8080/docs-bikes](http://localhost:8080/docs-bikes) |
+
+## Interface web
+
+A aplicação inclui interface de cliente e painel administrativo, servidos pelo próprio Spring Boot. Depois de iniciar o projeto, abra [http://localhost:8080](http://localhost:8080). Não é necessário iniciar outro servidor nem instalar Node.js para utilizar o sistema.
+
+### Telas e funcionalidades
+
+| Área | O que está disponível |
+| --- | --- |
+| Acesso | Criar conta, entrar, mostrar/ocultar senha e sair |
+| Visão geral | Indicadores reais, locações recentes e próximas devoluções |
+| Cliente | Completar cadastro com nome e CPF, consultar dados e informações de auditoria |
+| Minhas locações | Histórico próprio, busca, filtro de status, detalhes e comprovante |
+| Alugar bicicleta | Código opcional, seleção automática de bicicleta disponível, previsão de devolução e cartão de teste |
+| Devolução | Confirmação, encaminhamento opcional à manutenção e valor final |
+| Bicicletas (ADMIN) | Cadastro, busca por código/modelo, consulta, auditoria e alteração entre disponível e manutenção |
+| Clientes (ADMIN) | Busca por nome/CPF/e-mail e consulta dos dados dos clientes |
+| Usuários (ADMIN) | Consulta de contas e alteração de senha mediante senha atual |
+| Locações e relatórios (ADMIN) | Consulta geral, filtros, busca, paginação e devolução administrativa |
+| Minha conta | Dados de acesso e alteração da própria senha |
+
+O menu e as telas respeitam o perfil retornado pelo servidor. A API valida as permissões em todas as operações. O cadastro público continua criando somente CLIENTE; a preparação do primeiro administrador está descrita em [Autenticação e perfis de acesso](#autenticação-e-perfis-de-acesso).
+
+### Como usar
+
+Entre em **Criar conta**, informe um e-mail e uma senha de seis caracteres e complete seus dados de cliente. Para alugar, a frota precisa ter pelo menos uma bicicleta disponível, cadastrada pelo administrador. Em **Alugar bicicleta**, deixe o código vazio para a seleção automática ou informe o código da bicicleta desejada. Depois, consulte a locação em **Minhas locações** e confirme a devolução quando terminar.
+
+O cartão pertence à simulação acadêmica: use dados de teste, como `4111111111111111`, CVV `123` e uma validade futura. Não há cobrança por operadora. O comprovante apresenta o valor calculado e apenas os quatro últimos números do cartão.
+
+### Sessão, apresentação e acessibilidade
+
+O JWT fica somente na memória da página. Recarregar ou fechar a página exige novo login. Sair remove o token da interface; não revoga tokens já emitidos pela API. Senhas e dados completos do cartão não são gravados no armazenamento do navegador.
+
+A tarifa e o fuso são consultados no servidor. Datas são apresentadas em português brasileiro e usam o horário da locadora, inclusive quando o navegador está em outro fuso. A imagem da bicicleta é ilustrativa; os indicadores e as listas vêm da API.
+
+O layout se adapta ao celular, com menu recolhível, formulários em uma coluna e tabelas com rolagem própria. A interface inclui rótulos, foco visível, navegação por teclado, erros junto aos campos, notificações anunciadas e confirmação de descarte. Selects e seletores de data usam a interação nativa do navegador.
+
+As listas possuem busca e paginação de 10, 20 ou 50 registros. A paginação é feita na interface, pois a API atual retorna listas completas. Bases grandes exigirão paginação também no servidor.
+
+### Organização da interface
+
+| Arquivo | Responsabilidade |
+| --- | --- |
+| `src/main/resources/static/index.html` | Entrada da aplicação e política de conteúdo |
+| `assets/app.js` | Rotas, telas, permissões de apresentação e fluxos |
+| `assets/api.js` | Comunicação com a API e sessão em memória |
+| `assets/ui.js` | Campos, validação, notificações, tabelas e formatação |
+| `assets/styles.css` | Tema, componentes e comportamento responsivo |
+| `assets/fonts/` | Fonte Manrope e sua licença OFL |
+| `PRODUCT.md`, `DESIGN.md`, `UX-CONTRACT.md` | Escopo, decisões visuais e comportamento compartilhado |
+
+Os caminhos `assets/` da tabela são relativos a `src/main/resources/static/`.
 
 ## Requisitos e atividades
 
@@ -360,6 +414,8 @@ Todos os caminhos desta seção são relativos à base `http://localhost:8080/ap
 | Método | Rota | Acesso | Sucesso |
 | --- | --- | --- | --- |
 | POST | `/auth/login` | Público | 200 com JWT |
+| GET | `/auth/me` | Autenticado | 200 com ID, e-mail e perfil da conta |
+| GET | `/configuracao` | Público | 200 com `valorHora` e `timezone` |
 
 ### Usuários
 
@@ -880,11 +936,27 @@ No Linux ou macOS, substitua `.\mvnw.cmd` por `bash mvnw`.
 | `ClienteIT` | 37 | Vínculo, CPF, validação, auditoria, permissão, unicidade no banco e documentação |
 | `ClienteTest` | 2 | Contrato de igualdade e estabilidade do hash |
 | `LocadoraIT` | 54 | JWT, Basic, perfis, frota, locação, cartão, devolução, valores, manutenção, relatório, concorrência e espera por bloqueio |
-| **Total** | **122** | |
+| `InterfaceIT` | 6 | Arquivos públicos, conta autenticada, tarifa, fuso e preservação das permissões |
+| **Total da API** | **128** | |
 
-A última suíte validada passou com **122 testes, sem falhas, erros ou testes ignorados**. Os relatórios ficam em `target/surefire-reports/`.
+A última suíte validada passou com **128 testes, sem falhas, erros ou testes ignorados**. Os relatórios ficam em `target/surefire-reports/`.
 
 As verificações de duração usam relógio controlado. Os testes de bloqueio aguardam uma transação realmente bloqueada e avançam esse relógio para verificar o horário registrado, a cobrança e o vencimento das datas durante a espera.
+
+### Testes da interface
+
+Node.js 22 ou superior é necessário apenas para executar estes testes:
+
+```powershell
+npm ci
+npm test
+npx playwright install chromium
+npm run test:e2e
+```
+
+Execute `clean verify` antes de `test:e2e`, pois o teste utiliza o JAR compilado. O teste de navegador inicia uma instância separada da aplicação com H2 descartável e encerra seus processos ao terminar. Não usa nem altera o MySQL da aplicação.
+
+Os testes unitários verificam escape de conteúdo, formatação brasileira e conversão de fuso. O navegador percorre cadastro, locação, devolução, manutenção, senha, relatórios e navegação móvel, além de conflitos, falhas de consulta e expiração de sessão. Relatórios e capturas ficam em `target/ui-e2e/`. As respostas de falha 401/403/503 são interceptadas apenas nos cenários específicos; os fluxos principais usam a API real.
 
 ### Dados de teste
 
@@ -928,7 +1000,7 @@ O workflow [tests.yml](.github/workflows/tests.yml) executa em:
 - Pull requests.
 - Execução manual pelo GitHub Actions.
 
-A pipeline prepara Java 25, usa cache do Maven, executa `clean verify` e disponibiliza os relatórios de teste como artefato `relatorios-testes`, inclusive quando a etapa de testes falha.
+A pipeline prepara Java 25 e Node.js 22, executa `clean verify`, os testes unitários da interface e os fluxos com Chromium. Os relatórios da API e as capturas do navegador ficam no artefato `relatorios-testes`, inclusive quando uma etapa de teste falha.
 
 As execuções podem ser acompanhadas na aba [Actions](https://github.com/lcsrj/bikes-testes-alteracao-senha/actions).
 
@@ -958,11 +1030,12 @@ As execuções podem ser acompanhadas na aba [Actions](https://github.com/lcsrj/
 
 ## Escopo e limitações
 
-- O projeto entrega uma API de back-end; não inclui interface de cliente ou painel administrativo de front-end.
+- O projeto inclui API REST e interface web de cliente e administrador, no mesmo aplicativo Spring Boot.
+- Não há edição de nome/CPF, exclusão de cadastros ou promoção de administradores pela interface; essas operações não fazem parte da API atual.
 - O cartão é validado para a solicitação e o valor é calculado na devolução. Não existe integração com operadora nem débito bancário.
 - Número completo e CVV não são persistidos. Apenas os quatro últimos dígitos são registrados na locação.
 - Não há fluxo de cancelamento, reserva futura, pagamento externo ou multa separada por atraso.
-- Não há refresh token, logout ou revogação individual de JWT; o token possui expiração.
+- Não há refresh token, endpoint de logout ou revogação individual de JWT; o token possui expiração.
 - A aplicação usa MySQL; a suíte de integração é executada com H2.
 - Os valores locais de conexão podem ser substituídos por variáveis de ambiente. Para publicação, configure credenciais, chave JWT persistente e acesso por HTTPS.
 
