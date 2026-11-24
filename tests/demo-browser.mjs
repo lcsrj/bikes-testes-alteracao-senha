@@ -25,7 +25,7 @@ try {
     await page.getByRole('button', { name: `Entrar como ${role}`, exact: true }).click();
     await heading('Visão geral').waitFor();
   }
-  async function logout() { await page.getByRole('button', { name: 'Sair da conta', exact: true }).click(); await heading('Bom ter você por aqui.').waitFor(); }
+  async function logout() { await page.getByRole('button', { name: 'Sair da conta', exact: true }).click(); await heading('Bem-vindo à Bikes.').waitFor(); }
   await page.goto(url);
   await page.getByRole('button', { name: 'Entrar como cliente', exact: true }).waitFor();
   await page.screenshot({ path: join(output, 'demo-login-desktop.png'), fullPage: true });
@@ -110,7 +110,7 @@ try {
   await page.locator('#codigo').fill('DEMO-009'); await page.locator('#modelo').fill('Urbana de apresentação');
   await page.locator('dialog').getByRole('button', { name: 'Cadastrar bicicleta', exact: true }).click();
   await page.getByText('DEMO-009', { exact: true }).waitFor();
-  await page.reload(); await heading('Bom ter você por aqui.').waitFor(); await enter('administrador');
+  await page.reload(); await heading('Bem-vindo à Bikes.').waitFor(); await enter('administrador');
   await navigate('frota', 'Bicicletas');
   await page.getByText('DEMO-009', { exact: true }).waitFor();
   check('Cadastros persistem depois de recarregar, com nova sessão');
@@ -169,7 +169,7 @@ try {
   await page.getByRole('link', { name: 'Minha conta', exact: true }).click(); await heading('Minha conta').waitFor();
   await page.getByRole('button', { name: 'Restaurar exemplos da demonstração', exact: true }).click();
   await page.getByRole('button', { name: 'Restaurar demonstração', exact: true }).click();
-  await heading('Bom ter você por aqui.').waitFor();
+  await heading('Bem-vindo à Bikes.').waitFor();
   await enter('administrador');
   await navigate('frota', 'Bicicletas');
   check('Restaurar exemplos remove os cadastros de teste', await page.getByText('DEMO-009', { exact: true }).count() === 0);
@@ -181,7 +181,7 @@ try {
   await page.getByRole('button', { name: 'Concluir cadastro', exact: true }).click(); await heading('Alugar bicicleta').waitFor();
   check('Cadastro e perfil novos funcionam também no celular');
   await page.screenshot({ path: join(output, 'demo-cadastro-mobile.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Sair da conta', exact: true }).click(); await heading('Bom ter você por aqui.').waitFor();
+  await page.getByRole('button', { name: 'Sair da conta', exact: true }).click(); await heading('Bem-vindo à Bikes.').waitFor();
   await page.screenshot({ path: join(output, 'demo-login-mobile.png'), fullPage: true });
   check('Sem requisições de API, recursos ausentes ou erros de JavaScript', errors.length === 0);
   await writeFile(join(output, 'results.json'), JSON.stringify({ checks, errors }, null, 2));

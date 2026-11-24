@@ -45,11 +45,19 @@ const paths = {
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/>',
   tool: '<path d="m14 7 3 3 4-4a7 7 0 0 1-9 9l-7 7-4-4 7-7a7 7 0 0 1 9-9Z"/>',
   menu: '<path d="M3 6h18M3 12h18M3 18h18"/>',
-  close: '<path d="m6 6 12 12M6 18 18 6"/>'
+  close: '<path d="m6 6 12 12M6 18 18 6"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 7 8.5-7"/>',
+  lock: '<rect x="4.5" y="10" width="15" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4.5v2.5"/>',
+  eye: '<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  'eye-off': '<path d="M10.6 5.6A10 10 0 0 1 12 5.5c6.4 0 10 6.5 10 6.5a17 17 0 0 1-2.6 3.4M6.6 6.6C3.7 8.4 2 12 2 12s3.6 6.5 10 6.5a10 10 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>',
+  shield: '<path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.9 7.5-9.5V6Z"/><path d="m9 12 2.2 2.2L15.5 10"/>',
+  bicycle: '<circle cx="5.5" cy="16" r="4"/><circle cx="18.5" cy="16" r="4"/><path d="M5.5 16 9 9h7.5l2 7M9 9l3.5 7h-7m7 0 4-7M8 6h2.5m4-1h2.5l-.5 4"/>',
+  refresh: '<path d="M20 11a8 8 0 0 0-14.3-4.3L4 9m0-5v5h5M4 13a8 8 0 0 0 14.3 4.3L20 15m0 5v-5h-5"/>'
 };
 export const icon = name => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.bike}</svg>`;
-export const field = (name, label, options = {}) => `<div class="field ${options.wide ? 'wide' : ''}"><label for="${name}">${label}</label><input id="${name}" name="${name}" ${options.attributes || ''} value="${escape(options.value || '')}" ${options.hint ? `aria-describedby="${name}-hint"` : ''} ${options.optional ? '' : 'required'}>${options.hint ? `<small id="${name}-hint">${options.hint}</small>` : ''}<small class="field-error" id="${name}-error"></small></div>`;
-export const password = (name, label, autocomplete = 'current-password') => `<div class="field"><label for="${name}">${label}</label><div class="password"><input id="${name}" name="${name}" type="password" minlength="6" maxlength="6" required autocomplete="${autocomplete}" aria-describedby="${name}-hint"><button type="button" data-action="password" aria-controls="${name}" aria-label="Mostrar ${label.toLowerCase()}" aria-pressed="false">Mostrar</button></div><small id="${name}-hint">Exatamente 6 caracteres.</small><small class="field-error" id="${name}-error"></small></div>`;
+export const field = (name, label, options = {}) => `<div class="field ${options.wide ? 'wide' : ''}"><label for="${name}">${label}</label>${options.icon ? `<div class="input-icon">${icon(options.icon)}` : ''}<input id="${name}" name="${name}" ${options.attributes || ''} value="${escape(options.value || '')}" ${options.hint ? `aria-describedby="${name}-hint"` : ''} ${options.optional ? '' : 'required'}>${options.icon ? '</div>' : ''}${options.hint ? `<small id="${name}-hint">${options.hint}</small>` : ''}<small class="field-error" id="${name}-error"></small></div>`;
+export const password = (name, label, autocomplete = 'current-password', options = {}) => `<div class="field"><label for="${name}">${label}</label><div class="password${options.icons ? ' input-icon' : ''}">${options.icons ? icon('lock') : ''}<input id="${name}" name="${name}" type="password" minlength="6" maxlength="6" required autocomplete="${autocomplete}" ${options.icons ? 'placeholder="••••••"' : ''} aria-describedby="${name}-hint"><button type="button" data-action="password" aria-controls="${name}" aria-label="Mostrar ${label.toLowerCase()}" aria-pressed="false">${options.icons ? `${icon('eye')}${icon('eye-off')}<span data-label>Mostrar</span>` : 'Mostrar'}</button></div><small id="${name}-hint">Exatamente 6 caracteres.</small><small class="field-error" id="${name}-error"></small></div>`;
 export const errorArea = () => '<div class="form-error" role="alert" tabindex="-1" hidden></div>';
 export function showError(form, error) {
   form.querySelectorAll('.field-error').forEach(e => { e.textContent = ''; });
