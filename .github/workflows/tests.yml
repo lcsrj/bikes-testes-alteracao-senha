@@ -33,6 +33,17 @@ jobs:
         run: npx playwright install --only-shell chromium
       - name: Testar fluxos completos da interface
         run: npm run test:e2e
+      - name: Preparar demonstração e testar exportação PDF
+        run: |
+          npm run build:pages
+          npm run test:pdf
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Conferir conteúdo dos PDFs exportados
+        run: |
+          python -m pip install pypdf==7.1.1
+          python tests/check-pdf.py
       - name: Salvar relatórios de testes
         if: always()
         uses: actions/upload-artifact@v4
@@ -41,3 +52,4 @@ jobs:
           path: |
             target/surefire-reports/
             target/ui-e2e/
+            target/pdf-e2e/

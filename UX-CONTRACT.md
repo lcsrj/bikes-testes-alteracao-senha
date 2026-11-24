@@ -56,3 +56,11 @@ O catálogo autenticado do cliente contém modelo e quantidade livre. O select n
 Excluir bicicleta fica nos detalhes administrativos e é desabilitado enquanto estiver em uso. A confirmação informa que frota e catálogo serão atualizados, histórico mantido e código reservado. O formulário de situação fica inerte durante a confirmação; cancelar restaura a interação e preserva seus valores. Durante o envio, ações e Escape são bloqueados. Sucesso fecha o diálogo, atualiza a lista e confirma a exclusão. Erros mantêm a confirmação aberta. A exclusão é lógica por `ativo`, com consulta bloqueada por código e reservas impedidas para o registro excluído.
 
 Se o modelo selecionado deixa de estar disponível durante uma atualização, a escolha é mantida e identificada como indisponível. O envio pede uma nova escolha explícita e não troca silenciosamente para seleção automática.
+
+## Exportação administrativa em PDF
+
+Em Locações e relatórios, o ADMIN encontra Baixar PDF completo ao lado da atualização. As ações usam os botões compartilhados e se acomodam em linhas no celular. Uma nota informa que o arquivo reúne todas as categorias administrativas e ignora os filtros e a paginação da tela.
+
+Durante a coleta e a geração, o botão fica desabilitado, exibe Gerando PDF… e usa aria-busy. A navegação segue o bloqueio compartilhado de operações em andamento. Notificações anunciam preparo, sucesso ou falha; uma falha libera nova tentativa e não baixa um arquivo parcial. O acesso é conferido novamente antes do download. Consultas de detalhes têm concorrência máxima de três; as listas usam os endpoints administrativos existentes.
+
+O PDF A4 horizontal usa Manrope, verde da marca, tabelas com cabeçalhos repetidos, quebra de linha e páginas numeradas. Reúne resumo, locações/devoluções, clientes com auditoria, frota atual com auditoria e contas sem credenciais. Cartões mostram apenas quatro dígitos. A demonstração é identificada no arquivo. Horários locais preservam o fuso da aplicação; consultas não constituem um instantâneo transacional. Os testes de navegador exportam bases completas, vazias e extensas e verificam acesso, celular e recuperação de falha.

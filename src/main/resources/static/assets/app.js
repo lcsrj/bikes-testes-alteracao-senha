@@ -161,7 +161,8 @@ async function rentalList(admin) {
   const headers = admin
     ? ['Locação', 'Cliente', 'Bicicleta', 'Retirada', 'Devolução efetiva', 'Duração', 'Status', 'Valor', '<span class="sr-only">Ações</span>']
     : ['Locação', 'Bicicleta', 'Retirada', 'Status', 'Valor', '<span class="sr-only">Ações</span>'];
-  return title(admin ? 'Locações e relatórios' : 'Minhas locações', admin ? 'Acompanhe retiradas, devoluções e os valores de cada locação.' : 'Acompanhe seus trajetos e devolva a bicicleta quando terminar.', admin ? button('retry', 'Atualizar relatório', '', 'secondary') : link('nova-locacao', 'Alugar bicicleta', 'primary', 'plus'))
+  return title(admin ? 'Locações e relatórios' : 'Minhas locações', admin ? 'Acompanhe retiradas, devoluções e os valores de cada locação.' : 'Acompanhe seus trajetos e devolva a bicicleta quando terminar.', admin ? `<div class="page-actions">${button('download-pdf', 'Baixar PDF completo', '', 'primary')}${button('retry', 'Atualizar relatório', '', 'secondary')}</div>` : link('nova-locacao', 'Alugar bicicleta', 'primary', 'plus'))
+    + (admin ? '<p class="page-note">O PDF inclui todas as locações, clientes, bicicletas da frota e contas de acesso, sem aplicar os filtros ou a paginação desta tela.</p>' : '')
     + `<section class="panel">${filters(admin ? 'cliente, bicicleta ou locação' : 'bicicleta ou locação', [['ATIVA', 'Em andamento'], ['FINALIZADA', 'Finalizada']])}${admin ? '<p class="report-hint">Em telas menores, deslize a tabela para ver todas as colunas.</p>' : ''}${result.rows.length ? table(headers, rentalRows(result.rows, admin, admin), admin ? 'Relatório de locações' : 'Minhas locações') : empty('Nenhuma locação encontrada', 'Tente outra busca ou limpe os filtros.')}${result.foot}</section><p class="page-note">${admin ? 'A duração em andamento mostra o tempo até a última atualização. A devolução fica pendente até a finalização. ' : ''}Os valores das locações em andamento são calculados na devolução. Horários em ${e(config.timezone)}.</p>`;
 }
 
@@ -170,6 +171,35 @@ async function fleet() {
   currentData = bikes;
   const result = slice(bikes, b => `${b.codigo} ${b.modelo}`);
   return title('Bicicletas', 'Sua frota organizada, do primeiro pedal à manutenção.', button('new-bike', `${icon('plus')}Cadastrar bicicleta`, '', 'primary')) + `<section class="panel">${filters('código ou modelo', [['LIVRE', 'Disponível'], ['OCUPADA', 'Em uso'], ['MANUTENCAO', 'Manutenção']])}${result.rows.length ? table(['Código', 'Modelo', 'Status', 'Cadastro', '<span class="sr-only">Ações</span>'], result.rows.map(b => `<tr><td><strong>${e(b.codigo)}</strong></td><td>${e(b.modelo)}</td><td>${badge(b.status)}</td><td>${date(b.dataCriacao)}</td><td>${button('bike-detail', 'Ver detalhes', b.codigo)}</td></tr>`), 'Bicicletas da frota') : empty('Nenhuma bicicleta encontrada', bikes.length ? 'Tente outro código ou limpe os filtros.' : 'Cadastre sua primeira bicicleta para começar.', !bikes.length ? button('new-bike', 'Cadastrar bicicleta', '', 'primary') : '')}${result.foot}</section>`;
+}
+
+async function downloadReport(control) {
+  if (!isAdmin() || !hasToken()) return;
+  const owner = account;
+  control.disabled = true;
+  control.dataset.busy = 'true';
+  control.setAttribute('aria-busy', 'true');
+  control.textContent = 'Gerando PDF…';
+  toast('Preparando o relatório completo. Aguarde o download.');
+  try {
+    const { collectReportData } = await import('./report-data.js');
+    const data = await collectReportData(api);
+    const { createReportPdf } = await import('./report-pdf.js');
+    const doc = await createReportPdf(data, { timezone: config.timezone, demo: DEMO });
+    const current = await api('/auth/me');
+    if (account !== owner || !hasToken() || current.id !== owner.id || current.role !== 'ADMIN') {
+      throw new Error('Seu acesso mudou. Entre novamente para gerar o relatório.');
+    }
+    doc.save(`bikes-relatorio-completo-${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast('PDF completo gerado. Confira os downloads do navegador.');
+  } catch (error) {
+    if (account === owner) toast(`Não foi possível gerar o PDF. ${error.message || 'Tente novamente.'}`);
+  } finally {
+    control.disabled = false;
+    delete control.dataset.busy;
+    control.removeAttribute('aria-busy');
+    control.textContent = 'Baixar PDF completo';
+  }
 }
 
 async function people(kind) {
@@ -394,6 +424,7 @@ document.addEventListener('click', async event => {
   else if (action === 'discard') { dirty = false; allowNavigation = true; const next = control.dataset.id; closeDialog(); if (next === 'logout') logout(); else { location.hash = next; if (next === committedHash) route(); } }
   else if (action === 'logout') { if (dirty) confirmNavigation('logout'); else logout(); }
   else if (action === 'retry') route();
+  else if (action === 'download-pdf') await downloadReport(control);
   else if (action === 'clear-filters') { location.hash = `#/${getRoute().path}`; }
   else if (DEMO && action === 'demo-login') {
     if (control.disabled) return;
