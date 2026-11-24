@@ -60,7 +60,7 @@ try {
   }
   async function logout() {
     await page.getByRole('button', { name: 'Sair da conta', exact: true }).click();
-    await heading('Bom ter você por aqui.').waitFor();
+    await heading('Bem-vindo à Bikes.').waitFor();
   }
   await page.goto(base);
   await page.getByRole('button', { name: 'Entrar na conta', exact: true }).waitFor();
@@ -130,7 +130,7 @@ try {
   check('Evento de navegação atrasado não interrompe o próximo login', await page.locator('dialog').evaluate(el => !el.open));
   await login(email, '654321');
   check('Senha alterada autentica no próximo acesso');
-  await page.reload(); await heading('Bom ter você por aqui.').waitFor();
+  await page.reload(); await heading('Bem-vindo à Bikes.').waitFor();
   check('Recarregar exige login e não persiste token', await page.evaluate(() => localStorage.length === 0 && sessionStorage.length === 0));
   await login('jose@gmail.com');
   await navigate('frota', 'Bicicletas');
@@ -191,7 +191,7 @@ try {
   check('Recusa 403 tem mensagem específica');
   await page.route('**/api/v1/relatorios/locacoes', route => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Sessão encerrada' }) }));
   await page.goto(`${base}/#/relatorios`);
-  await heading('Bom ter você por aqui.').waitFor();
+  await heading('Bem-vindo à Bikes.').waitFor();
   check('Sessão expirada limpa painel e exige novo login');
   await page.screenshot({ path: join(output, 'login-mobile.png'), fullPage: true });
   check('JavaScript sem exceções durante os fluxos', errors.length === 0);
