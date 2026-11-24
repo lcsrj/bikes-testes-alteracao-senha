@@ -15,6 +15,7 @@ Para apresentar o projeto, basta abrir o link e escolher **Entrar como cliente**
 - [Visão geral](#visão-geral)
 - [Demonstração no GitHub Pages](#demonstração-no-github-pages)
 - [Interface web](#interface-web)
+- [Relatório completo em PDF](#relatório-completo-em-pdf)
 - [Requisitos e atividades](#requisitos-e-atividades)
 - [Tecnologias](#tecnologias)
 - [Arquitetura e estrutura](#arquitetura-e-estrutura)
@@ -219,6 +220,26 @@ A configuração geral também inclui locale `pt_BR`, fuso `America/Sao_Paulo`, 
 
 A numeração das atividades anteriores é distinta da numeração dos requisitos do projeto final. O cadastro de Cliente, desenvolvido na Atividade 3, corresponde ao requisito 4 do enunciado final.
 
+## Relatório completo em PDF
+
+Entre como **administrador**, abra **Locações e relatórios** e clique em **Baixar PDF completo**. O arquivo é baixado pelo navegador, tanto na demonstração do GitHub Pages quanto na interface conectada à API.
+
+| Categoria | Conteúdo do arquivo |
+| --- | --- |
+| Resumo | Data de geração, fuso, quantidades e total calculado das locações finalizadas |
+| Locações e devoluções | ID da locação, cliente e seu ID, código e modelo da bicicleta, retirada, devolução prevista e efetiva, duração com segundos, status, tarifa contratada, valor e quatro últimos dígitos do cartão |
+| Clientes | ID, nome, CPF, usuário associado, telefone, e-mail e campos de auditoria |
+| Frota atual | ID, código, modelo, status e campos de auditoria das bicicletas não excluídas |
+| Contas de acesso | ID, e-mail e perfil dos usuários cadastrados |
+
+O PDF sempre consulta **todos os registros disponíveis**, sem aplicar busca, filtro de status ou paginação da tela. Bicicletas excluídas continuam aparecendo nas locações em que participaram. Senhas, resumos de senha, tokens, número completo do cartão e CVV não são incluídos.
+
+Os horários seguem o fuso configurado na aplicação. A duração das locações ativas corresponde ao momento da consulta; o valor fica a calcular até a devolução. O total das finalizadas representa o valor calculado, sem confirmar pagamento. Como as categorias são consultadas separadamente durante a geração, alterações simultâneas podem aparecer entre consultas.
+
+O botão mostra **Gerando PDF…** durante o preparo e permite nova tentativa em caso de falha. Se uma consulta falhar, nenhum relatório parcial é baixado. As consultas administrativas exigem ADMIN e o acesso é conferido novamente antes do download. Na demonstração, o arquivo identifica que contém dados fictícios deste navegador.
+
+A geração usa jsPDF e AutoTable com arquivos locais, sem CDN ou serviço externo. As bibliotecas são carregadas apenas ao exportar. As licenças MIT ficam em `src/main/resources/static/assets/vendor/`; a fonte Manrope usa a licença OFL em `assets/fonts/OFL.txt`. Para atualizar as cópias locais após instalar as dependências fixadas, execute `npm run vendor:pdf`.
+
 ## Tecnologias
 
 | Tecnologia | Versão ou uso |
@@ -239,9 +260,12 @@ A numeração das atividades anteriores é distinta da numeração dos requisito
 | JUnit / AssertJ / Awaitility | Testes e verificações de concorrência |
 | WebTestClient / Java HttpClient | Testes HTTP de ponta a ponta |
 | Maven Wrapper | Compilação, testes e empacotamento |
+| HTML / CSS / JavaScript | Interface compartilhada entre a API e a demonstração estática |
+| jsPDF / AutoTable | 4.2.1 / 5.0.9; exportação administrativa em PDF |
+| Playwright | Testes dos fluxos da interface no Chromium |
 | GitHub Actions | Execução da suíte em pushes e pull requests |
 
-As dependências estão em [pom.xml](pom.xml).
+As dependências da aplicação estão em [pom.xml](pom.xml); as ferramentas da interface e as versões das bibliotecas PDF estão em [package.json](package.json).
 
 ## Arquitetura e estrutura
 
@@ -1044,11 +1068,24 @@ npm ci
 npm test
 npx playwright install chromium
 npm run test:e2e
+npm run build:pages
+npm run test:pdf
 ```
 
 Execute `clean verify` antes de `test:e2e`, pois o teste utiliza o JAR compilado. O teste de navegador inicia uma instância separada da aplicação com H2 descartável e encerra seus processos ao terminar. Não usa nem altera o MySQL da aplicação.
 
 Os testes unitários verificam escape de conteúdo, formatação brasileira, conversão de fuso e as regras da demonstração local. O navegador percorre cadastro, locação, devolução, manutenção, senha, relatórios e navegação móvel, além de conflitos, falhas de consulta e expiração de sessão. Relatórios e capturas ficam em `target/ui-e2e/`. As respostas de falha 401/403/503 são interceptadas apenas nos cenários específicos; os fluxos principais usam a API real.
+
+### Verificação dos PDFs
+
+O teste `npm run test:pdf` verifica o download administrativo, recusa ao cliente, filtros sem resultados, celular, falha de fonte com nova tentativa, base vazia e histórico extenso. Os arquivos e capturas ficam em `target/pdf-e2e/`. Para conferir também o texto extraído, a presença de todos os registros, os acentos e a numeração das páginas, use Python 3.12 ou superior:
+
+```powershell
+python -m pip install pypdf==7.1.1
+python tests/check-pdf.py
+```
+
+O workflow executa essa conferência após os testes no navegador e também valida o PDF gerado a partir da API real. Python e Node.js são ferramentas de desenvolvimento; o usuário baixa o PDF diretamente pelo navegador.
 
 ### Dados de teste
 

@@ -21,3 +21,4 @@ h1[tabindex="-1"]:focus-visible{outline:0}
 .button[hidden]{display:none}
 
 #bike-status[inert]{opacity:.5}
+.page-actions{display:flex;gap:10px;flex-wrap:wrap;flex-shrink:0}.page-actions>.button{min-height:44px}@media(max-width:760px){.page-actions{width:100%}.page-actions>.button{flex:1;font-size:12px}}

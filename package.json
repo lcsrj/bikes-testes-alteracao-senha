@@ -3,13 +3,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/ui.test.mjs tests/demo.test.mjs",
+    "test": "node --test tests/ui.test.mjs tests/demo.test.mjs tests/report.test.mjs",
     "build:pages": "node scripts/build-pages.mjs",
     "test:demo": "node tests/demo-browser.mjs",
     "test:e2e": "node tests/browser.mjs",
-    "preview:pages": "node scripts/preview-pages.mjs"
+    "preview:pages": "node scripts/preview-pages.mjs",
+    "vendor:pdf": "node scripts/sync-pdf-vendor.mjs",
+    "test:pdf": "node tests/pdf-browser.mjs"
   },
   "devDependencies": {
+    "jspdf": "4.2.1",
+    "jspdf-autotable": "5.0.9",
     "playwright": "1.58.2"
   }
 }

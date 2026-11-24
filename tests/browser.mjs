@@ -159,6 +159,14 @@ try {
   await page.locator('#page-size').selectOption('20');
   await page.waitForURL('**size=20*');
   check('Relatório filtra status e preserva tamanho de página na URL');
+  await page.route('**/api/v1/clientes', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Indisponível para teste.' }) }));
+  await page.getByRole('button', { name: 'Baixar PDF completo', exact: true }).click();
+  await page.locator('#toast').filter({ hasText: 'Não foi possível gerar o PDF.' }).waitFor();
+  await page.unroute('**/api/v1/clientes');
+  const pdfDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Baixar PDF completo', exact: true }).click();
+  await (await pdfDownload).saveAs(join(output, 'relatorio-api.pdf'));
+  check('Administrador exporta PDF com dados da API e recupera falha de consulta');
   await navigate('inicio', 'Visão geral');
   await page.screenshot({ path: join(output, 'admin-desktop.png'), fullPage: true });
   // Falhas de consulta, 403 e sessão expirada ficam restritas ao transporte neste teste.
