@@ -60,7 +60,7 @@ export function createDemoService({ storage, now = () => Date.now(), uuid = () =
       { id: 3, nome: 'Beatriz Lima', cpf: '12345678909', usuarioId: 103 }
     ].map(c => ({ ...c, email: users.find(u => u.id === c.usuarioId).username, telefone: null, ...audit('admin@bikes.demo') }));
     const models = ['Urbana aro 26', 'Urbana aro 29', 'Elétrica City', 'Mountain Bike aro 29', 'Urbana com cesta', 'Passeio aro 26', 'Mountain Bike aro 27', 'Elétrica Compacta'];
-    const bikes = models.map((modelo, i) => ({ id: i + 1, codigo: `BIKE-${String(i + 1).padStart(3, '0')}`, modelo, status: i < 2 ? 'OCUPADA' : i === 7 ? 'MANUTENCAO' : 'LIVRE', ...audit('admin@bikes.demo') }));
+    const bikes = models.map((modelo, i) => ({ id: i + 1, codigo: `BIKE-${String(i + 1).padStart(3, '0')}`, modelo, ativo: true, status: i < 2 ? 'OCUPADA' : i === 7 ? 'MANUTENCAO' : 'LIVRE', ...audit('admin@bikes.demo') }));
     const rentals = Array.from({ length: 6 }, (_, i) => {
       const client = clients[i % 3];
       const minutes = (i + 1) * 35;
@@ -94,6 +94,9 @@ export function createDemoService({ storage, now = () => Date.now(), uuid = () =
   };
   const only = (user, role) => { if (user.role !== role) fail(403, 'Acesso não permitido para este perfil.'); };
   const find = (items, predicate, name) => items.find(predicate) || fail(404, `${name} não encontrado.`);
+  const presentRental = (rental, bikes) => ({ ...rental, modeloBicicleta: rental.modeloBicicleta || bikes.find(b => b.codigo === rental.codigoBicicleta)?.modelo || 'Modelo não informado', duracaoSegundos: rental.status === 'ATIVA'
+    ? Math.max(0, Math.floor((now() - zonedInstant(rental.dataRetirada, timezone)) / 1000))
+    : rental.duracaoSegundos });
   async function handle(path, { method = 'GET', body = {}, token } = {}) {
     if (path === '/configuracao') return { valorHora: rate, timezone };
     if (path === '/demo/reset' && method === 'POST') { sessions.clear(); await seed(); return null; }
@@ -123,6 +126,16 @@ export function createDemoService({ storage, now = () => Date.now(), uuid = () =
     }
     const user = requireUser(state, token);
     if (path === '/auth/me') return publicUser(user);
+    if (path === '/catalogo/modelos' && method === 'GET') {
+      only(user, 'CLIENTE');
+      const models = new Map();
+      for (const bike of state.bikes.filter(b => b.ativo !== false && b.status === 'LIVRE')) {
+        const key = bike.modelo.toLocaleLowerCase('pt-BR');
+        const model = models.get(key) || { modelo: bike.modelo, disponiveis: 0 };
+        model.disponiveis++; models.set(key, model);
+      }
+      return [...models.values()].sort((a, b) => a.modelo.localeCompare(b.modelo, 'pt-BR'));
+    }
     if (path === '/usuarios' && method === 'GET') { only(user, 'ADMIN'); return state.users.map(publicUser); }
     const userId = path.match(/^\/usuarios\/(\d+)$/)?.[1];
     if (userId) {
@@ -153,19 +166,24 @@ export function createDemoService({ storage, now = () => Date.now(), uuid = () =
     if (clientId) { only(user, 'ADMIN'); return find(state.clients, c => c.id === Number(clientId), 'Cliente'); }
     if (path.startsWith('/bicicletas')) {
       only(user, 'ADMIN');
-      if (path === '/bicicletas' && method === 'GET') return state.bikes;
+      if (path === '/bicicletas' && method === 'GET') return state.bikes.filter(b => b.ativo !== false);
       if (path === '/bicicletas' && method === 'POST') {
         const codigo = String(body.codigo || '').trim().toUpperCase();
         if (!/^[A-Z0-9_-]{3,30}$/.test(codigo)) invalid('codigo', 'Informe um código com 3 a 30 caracteres válidos.');
         if (typeof body.modelo !== 'string' || body.modelo.trim().length < 2 || body.modelo.length > 100) invalid('modelo', 'Informe um modelo com 2 a 100 caracteres.');
         if (state.bikes.some(b => b.codigo === codigo)) fail(409, 'Este código de bicicleta já está cadastrado.');
-        const bike = { id: nextId(state.bikes), codigo, modelo: body.modelo.trim(), status: 'LIVRE', ...audit(user.username) };
+        const bike = { id: nextId(state.bikes), codigo, modelo: body.modelo.trim(), ativo: true, status: 'LIVRE', ...audit(user.username) };
         state.bikes.push(bike); save(state); return bike;
       }
       const match = path.match(/^\/bicicletas\/([^/]+)(\/status)?$/);
       if (match) {
-        const bike = find(state.bikes, b => b.codigo === decodeURIComponent(match[1]), 'Bicicleta');
+        const bike = find(state.bikes, b => b.ativo !== false && b.codigo === decodeURIComponent(match[1]), 'Bicicleta');
         if (method === 'GET' && !match[2]) return bike;
+        if (method === 'DELETE' && !match[2]) {
+          if (bike.status === 'OCUPADA' || state.rentals.some(r => r.codigoBicicleta === bike.codigo && r.status === 'ATIVA')) fail(409, 'Devolva a bicicleta antes de excluí-la da frota.');
+          Object.assign(bike, { ativo: false, dataModificacao: local(), modificadoPor: user.username });
+          save(state); return null;
+        }
         if (method === 'PATCH' && match[2]) {
           if (bike.status === 'OCUPADA') fail(409, 'Esta bicicleta está em uso. Registre a devolução antes de mudar sua situação.');
           if (!['LIVRE', 'MANUTENCAO'].includes(body.status)) invalid('status', 'Escolha disponível ou manutenção.');
@@ -173,11 +191,11 @@ export function createDemoService({ storage, now = () => Date.now(), uuid = () =
         }
       }
     }
-    if (path === '/locacoes/me') { only(user, 'CLIENTE'); const client = state.clients.find(c => c.usuarioId === user.id); return state.rentals.filter(r => r.clienteId === client?.id); }
+    if (path === '/locacoes/me') { only(user, 'CLIENTE'); const client = state.clients.find(c => c.usuarioId === user.id); return state.rentals.filter(r => r.clienteId === client?.id).map(r => presentRental(r, state.bikes)); }
     if (path.startsWith('/relatorios/locacoes')) {
       only(user, 'ADMIN');
       const status = new URL(path, 'https://bikes.demo').searchParams.get('status');
-      return state.rentals.filter(r => !status || r.status === status).map(r => ({ ...r, locacaoId: r.id }));
+      return state.rentals.filter(r => !status || r.status === status).map(r => ({ ...presentRental(r, state.bikes), locacaoId: r.id }));
     }
     if (path === '/locacoes' && method === 'POST') {
       only(user, 'CLIENTE');
@@ -196,19 +214,23 @@ export function createDemoService({ storage, now = () => Date.now(), uuid = () =
       if (!Number.isInteger(year) || year < 2000 || year > 9999 || year * 100 + month < Number(current.slice(0, 4)) * 100 + Number(current.slice(5, 7))) invalid('cartao.anoValidade', 'Informe uma validade futura para o cartão.');
       const codigo = String(body.codigoBicicleta || '').trim().toUpperCase();
       if (codigo && !/^[A-Z0-9_-]{3,30}$/.test(codigo)) invalid('codigoBicicleta', 'Confira o código da bicicleta.');
-      const bike = codigo ? find(state.bikes, b => b.codigo === codigo, 'Bicicleta') : state.bikes.find(b => b.status === 'LIVRE');
+      const model = String(body.modeloBicicleta || '').trim();
+      if (model && (model.length < 2 || model.length > 100)) invalid('modeloBicicleta', 'Escolha um modelo válido.');
+      if (codigo && model) invalid('modeloBicicleta', 'Escolha o modelo ou informe o código, apenas um dos dois.');
+      const bike = codigo ? find(state.bikes, b => b.ativo !== false && b.codigo === codigo, 'Bicicleta')
+        : state.bikes.find(b => b.ativo !== false && b.status === 'LIVRE' && (!model || b.modelo.toLocaleLowerCase('pt-BR') === model.toLocaleLowerCase('pt-BR')));
       if (!bike || bike.status !== 'LIVRE') fail(409, 'Nenhuma bicicleta disponível para esta solicitação. Escolha outra bicicleta.');
-      const rental = { id: nextId(state.rentals), clienteId: client.id, nomeCliente: client.nome, codigoBicicleta: bike.codigo,
+      const rental = { id: nextId(state.rentals), clienteId: client.id, nomeCliente: client.nome, codigoBicicleta: bike.codigo, modeloBicicleta: bike.modelo,
         dataRetirada: current, dataDevolucaoPrevista: body.dataDevolucaoPrevista, dataDevolucao: null, duracaoSegundos: null,
         status: 'ATIVA', valorHora: rate, valor: null, cartaoFinal: digits(card.numero).slice(-4) };
       bike.status = 'OCUPADA'; bike.dataModificacao = current; bike.modificadoPor = user.username;
-      state.rentals.push(rental); save(state); return rental;
+      state.rentals.push(rental); save(state); return presentRental(rental, state.bikes);
     }
     const rentalPath = path.match(/^\/locacoes\/(\d+)(\/devolucao)?$/);
     if (rentalPath) {
       const rental = find(state.rentals, r => r.id === Number(rentalPath[1]), 'Locação');
       if (user.role !== 'ADMIN' && !state.clients.some(c => c.id === rental.clienteId && c.usuarioId === user.id)) fail(403, 'Você pode consultar somente suas próprias locações.');
-      if (!rentalPath[2] && method === 'GET') return rental;
+      if (!rentalPath[2] && method === 'GET') return presentRental(rental, state.bikes);
       if (rentalPath[2] && method === 'POST') {
         if (rental.status !== 'ATIVA') fail(409, 'Esta bicicleta já foi devolvida.');
         if (typeof body.manutencao !== 'boolean') invalid('manutencao', 'Informe se a bicicleta precisa de manutenção.');

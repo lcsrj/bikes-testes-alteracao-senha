@@ -25,10 +25,10 @@ export function localNow(timezone, offsetMinutes = 0) {
   const parts = new Intl.DateTimeFormat('sv-SE', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(Date.now() + offsetMinutes * 60000));
   return parts.replace(' ', 'T');
 }
-export function duration(seconds) {
+export function duration(seconds, includeSeconds = false) {
   if (seconds == null) return 'Em andamento';
   const mins = Math.floor(seconds / 60);
-  return `${Math.floor(mins / 60)}h ${mins % 60}min`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}min${includeSeconds ? ` ${Math.floor(seconds) % 60}s` : ''}`;
 }
 const paths = {
   bike: '<circle cx="5.5" cy="16.5" r="4"/><circle cx="18.5" cy="16.5" r="4"/><path d="m5.5 16.5 5-10 8 10h-13l7-7M9 6.5h4m3-3h3l2 6"/>',

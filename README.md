@@ -126,15 +126,44 @@ Além da demonstração online, a aplicação inclui interface de cliente e pain
 | Visão geral | Indicadores reais, locações recentes e próximas devoluções |
 | Cliente | Completar cadastro com nome e CPF, consultar dados e informações de auditoria |
 | Minhas locações | Histórico próprio, busca, filtro de status, detalhes e comprovante |
-| Alugar bicicleta | Código opcional, seleção automática de bicicleta disponível, previsão de devolução e cartão de teste |
+| Alugar bicicleta | Escolha do modelo, código opcional ou seleção automática; previsão de devolução e cartão de teste |
 | Devolução | Confirmação, encaminhamento opcional à manutenção e valor final |
-| Bicicletas (ADMIN) | Cadastro, busca por código/modelo, consulta, auditoria e alteração entre disponível e manutenção |
+| Bicicletas (ADMIN) | Cadastro com sugestões de modelos, busca, consulta, auditoria, situação e exclusão da frota com preservação do histórico |
 | Clientes (ADMIN) | Busca por nome/CPF/e-mail e consulta dos dados dos clientes |
 | Usuários (ADMIN) | Consulta de contas e alteração de senha mediante senha atual |
-| Locações e relatórios (ADMIN) | Consulta geral, filtros, busca, paginação e devolução administrativa |
+| Locações e relatórios (ADMIN) | Cliente, código da bicicleta, retirada, devolução efetiva, duração, status e valor na própria tabela; filtros, busca, paginação e devolução administrativa |
 | Minha conta | Dados de acesso e alteração da própria senha |
 
 O menu e as telas respeitam o perfil retornado pelo servidor. A API valida as permissões em todas as operações. O cadastro público continua criando somente CLIENTE; a preparação do primeiro administrador está descrita em [Autenticação e perfis de acesso](#autenticação-e-perfis-de-acesso).
+
+### Campos do relatório de locações e devoluções
+A tela administrativa exibe diretamente na tabela o nome do cliente, código da bicicleta, data/hora de retirada, data/hora da devolução efetiva, duração com horas/minutos/segundos e status. Locações ativas mostram devolução pendente e tempo decorrido até a última consulta. O botão **Atualizar relatório** renova os dados. Em telas menores, a tabela possui rolagem horizontal para consultar todas as colunas. Esses campos estão disponíveis tanto na demonstração quanto na interface conectada à API.
+
+### Escolha de modelo e exclusão de bicicletas
+
+Em **Alugar bicicleta**, o cliente escolhe um dos modelos disponíveis, com a quantidade livre indicada na lista. O sistema seleciona uma bicicleta livre daquele modelo. **Atualizar modelos** renova a disponibilidade sem apagar os dados já preenchidos. Se o modelo escolhido ficar indisponível, ele permanece identificado e o sistema pede uma nova escolha antes de alugar. O modelo escolhido aparece nos detalhes da locação e no comprovante.
+
+Também é possível deixar **Qualquer modelo disponível** ou informar um código específico. Informar o código limpa a escolha do modelo; selecionar um modelo limpa o código. Na API, enviar `codigoBicicleta` e `modeloBicicleta` juntos retorna 422. Exemplo de solicitação por modelo:
+
+```json
+{
+  "modeloBicicleta": "Elétrica",
+  "dataDevolucaoPrevista": "2030-12-01T18:00:00",
+  "cartao": {
+    "titular": "Cliente de Teste",
+    "numero": "4111111111111111",
+    "cvv": "123",
+    "mesValidade": 12,
+    "anoValidade": 2031
+  }
+}
+```
+
+No painel administrativo, **Bicicletas → Ver detalhes → Excluir bicicleta** abre a confirmação. Cancelar mantém os valores do formulário. Bicicletas em uso não podem ser excluídas. A exclusão remove a bicicleta da frota e do catálogo por meio do campo `ativo`, preservando suas locações, auditoria e código. O código não pode ser reutilizado. O catálogo do cliente contém apenas modelos com bicicletas livres e ativas; o cadastro e as demais ações administrativas continuam exclusivos de ADMIN.
+
+A coluna `ativo` possui valor padrão `true`, inclusive no schema, para manter visíveis os registros existentes. As consultas administrativas, a seleção automática e a seleção por modelo ignoram bicicletas excluídas. A reserva usa bloqueio de escrita e a restrição de locação ativa, inclusive quando a escolha é feita por modelo.
+
+Esses fluxos funcionam na API Java e na demonstração. Na versão do Pages, bicicletas antigas no armazenamento local continuam ativas e passam a oferecer os novos controles, sem exigir a restauração dos exemplos.
 
 ### Como usar
 
@@ -272,7 +301,7 @@ erDiagram
 | --- | --- |
 | Usuario | `id`, `username`, `password`, `role` |
 | Cliente | `id`, `nome`, `cpf`, `telefone`, `email`, vínculo com `usuario` |
-| Bicicleta | `id`, `codigo`, `modelo`, `status` |
+| Bicicleta | `id`, `codigo`, `modelo`, `status`, `ativo` |
 | Locacao | `id`, vínculos com `cliente` e `bicicleta`, `dataRetirada`, `dataDevolucaoPrevista`, `dataDevolucao`, `duracaoSegundos`, `valorHora`, `valor`, `cartaoFinal`, `status` |
 
 Todas essas entidades herdam de `EntidadeAuditavel`: `dataCriacao`, `dataModificacao`, `criadoPor` e `modificadoPor`.
@@ -449,7 +478,8 @@ Em seguida, faça login com essa conta para obter o token usado nas operações 
 | Cadastrar cliente | Não | Próprio cadastro | Não |
 | Consultar `/clientes/me` | Não | Próprios dados | Apenas se a conta possuir vínculo de cliente |
 | Consultar cliente por ID e listar clientes | Não | Não | Sim |
-| Cadastrar, listar, consultar e alterar status de bicicletas | Não | Não | Sim |
+| Cadastrar, listar, consultar, alterar status e excluir bicicletas | Não | Não | Sim |
+| Consultar modelos disponíveis no catálogo | Não | Sim | Não |
 | Solicitar locação | Não | Com cadastro de cliente | Não |
 | Consultar `/locacoes/me` | Não | Próprias locações | Não |
 | Consultar uma locação e registrar devolução | Não | Própria locação | Qualquer locação |
@@ -497,6 +527,13 @@ Todos os caminhos desta seção são relativos à base `http://localhost:8080/ap
 | GET | `/bicicletas` | ADMIN | 200 com lista |
 | GET | `/bicicletas/{codigo}` | ADMIN | 200 |
 | PATCH | `/bicicletas/{codigo}/status` | ADMIN | 200 |
+| DELETE | `/bicicletas/{codigo}` | ADMIN | 204; preserva o histórico |
+
+### Catálogo de modelos
+
+| Método | Rota | Acesso | Sucesso |
+| --- | --- | --- | --- |
+| GET | `/catalogo/modelos` | CLIENTE autenticado | 200 com modelo e quantidade livre |
 
 ### Locações
 
@@ -873,7 +910,8 @@ O tempo aguardando o bloqueio da bicicleta não entra na duração nem no valor.
 | Bicicleta / `codigo` | Obrigatório; de 3 a 30 caracteres; letras, números, `_` e `-`; único |
 | Bicicleta / `modelo` | Obrigatório; de 2 a 100 caracteres |
 | Alteração de status | Status obrigatório; somente LIVRE ou MANUTENCAO pode ser definido manualmente |
-| Locação / `codigoBicicleta` | Opcional; mesmo formato do código de bicicleta |
+| Locação / `codigoBicicleta` | Opcional; mesmo formato do código de bicicleta; não pode ser combinado com modelo |
+| Locação / `modeloBicicleta` | Opcional; de 2 a 100 caracteres; seleciona uma bicicleta livre do modelo escolhido |
 | Locação / `dataDevolucaoPrevista` | Obrigatória e posterior ao horário efetivo da retirada |
 | Locação / `cartao` | Obrigatório; campos internos também validados |
 | Cartão / `titular` | Obrigatório; de 2 a 100 caracteres |
@@ -989,11 +1027,11 @@ No Linux ou macOS, substitua `.\mvnw.cmd` por `bash mvnw`.
 | `UsuarioSenhaTest` | 24 | Sucesso, senha atual incorreta, confirmação diferente, campos inválidos e regressão da troca de senha |
 | `ClienteIT` | 37 | Vínculo, CPF, validação, auditoria, permissão, unicidade no banco e documentação |
 | `ClienteTest` | 2 | Contrato de igualdade e estabilidade do hash |
-| `LocadoraIT` | 54 | JWT, Basic, perfis, frota, locação, cartão, devolução, valores, manutenção, relatório, concorrência e espera por bloqueio |
+| `LocadoraIT` | 62 | JWT, Basic, perfis, frota, locação, cartão, devolução, valores, manutenção, relatório, concorrência e espera por bloqueio |
 | `InterfaceIT` | 6 | Arquivos públicos, conta autenticada, tarifa, fuso e preservação das permissões |
-| **Total da API** | **128** | |
+| **Total da API** | **136** | |
 
-A última suíte validada passou com **128 testes, sem falhas, erros ou testes ignorados**. Os relatórios ficam em `target/surefire-reports/`.
+A última suíte validada passou com **136 testes, sem falhas, erros ou testes ignorados**. Os relatórios ficam em `target/surefire-reports/`.
 
 As verificações de duração usam relógio controlado. Os testes de bloqueio aguardam uma transação realmente bloqueada e avançam esse relógio para verificar o horário registrado, a cobrança e o vencimento das datas durante a espera.
 
@@ -1087,7 +1125,7 @@ As execuções podem ser acompanhadas na aba [Actions](https://github.com/lcsrj/
 ## Escopo e limitações
 
 - O projeto inclui API REST e interface web de cliente e administrador, no mesmo aplicativo Spring Boot.
-- Não há edição de nome/CPF, exclusão de cadastros ou promoção de administradores pela interface; essas operações não fazem parte da API atual.
+- Não há edição de nome/CPF, exclusão de usuários/clientes ou promoção de administradores pela interface. A exclusão de bicicletas remove da frota e preserva o histórico.
 - O cartão é validado para a solicitação e o valor é calculado na devolução. Não existe integração com operadora nem débito bancário.
 - Número completo e CVV não são persistidos. Apenas os quatro últimos dígitos são registrados na locação.
 - Não há fluxo de cancelamento, reserva futura, pagamento externo ou multa separada por atraso.

@@ -47,11 +47,20 @@ public class LocacaoService {
     public LocacaoResponseDTO create(LocacaoRequestDTO request) {
         Cliente cliente = clienteRepository.findByUsuarioId(usuarioAtual.get().getId())
                 .orElseThrow(() -> new NegocioException("Cadastre seus dados de cliente antes de solicitar uma locação"));
-        Bicicleta bicicleta = request.codigoBicicleta() == null
-                ? bicicletaRepository.findFirstByStatusOrderByIdAsc(Bicicleta.Status.LIVRE)
-                    .orElseThrow(() -> new NegocioException("Não há bicicletas disponíveis"))
-                : bicicletaRepository.findByCodigoForUpdate(request.codigoBicicleta())
+        if (request.codigoBicicleta() != null && request.modeloBicicleta() != null) {
+            throw new DadosInvalidosException("Informe o modelo ou o código da bicicleta, apenas um dos dois");
+        }
+        Bicicleta bicicleta;
+        if (request.codigoBicicleta() != null) {
+            bicicleta = bicicletaRepository.findByCodigoForUpdate(request.codigoBicicleta())
                     .orElseThrow(() -> new EntityNotFoundException("Bicicleta não encontrada"));
+        } else if (request.modeloBicicleta() != null) {
+            bicicleta = bicicletaRepository.findFirstByStatusAndAtivoTrueAndModeloIgnoreCaseOrderByIdAsc(Bicicleta.Status.LIVRE, request.modeloBicicleta())
+                    .orElseThrow(() -> new NegocioException("Não há bicicletas disponíveis desse modelo"));
+        } else {
+            bicicleta = bicicletaRepository.findFirstByStatusAndAtivoTrueOrderByIdAsc(Bicicleta.Status.LIVRE)
+                    .orElseThrow(() -> new NegocioException("Não há bicicletas disponíveis"));
+        }
         if (bicicleta.getStatus() != Bicicleta.Status.LIVRE) {
             throw new NegocioException("A bicicleta não está disponível");
         }

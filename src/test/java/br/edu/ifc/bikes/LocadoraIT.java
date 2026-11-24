@@ -517,7 +517,124 @@ class LocadoraIT {
                 .jsonPath("$.paths['/api/v1/bicicletas'].post.responses['201']").exists()
                 .jsonPath("$.paths['/api/v1/locacoes'].post.security[0].bearerAuth").isArray()
                 .jsonPath("$.paths['/api/v1/locacoes/{id}/devolucao'].post").exists()
-                .jsonPath("$.paths['/api/v1/relatorios/locacoes'].get").exists();
+                .jsonPath("$.paths['/api/v1/relatorios/locacoes'].get").exists()
+                .jsonPath("$.paths['/api/v1/bicicletas/{codigo}'].delete.responses['204']").exists()
+                .jsonPath("$.paths['/api/v1/catalogo/modelos'].get.security[0].bearerAuth").isArray();
+    }
+
+    @Test
+    void catalogo_ExigeClienteENaoExpoeAdministracaoDaFrota() {
+        cadastrarBicicleta("BIKE-001", "Elétrica");
+        client.get().uri("/api/v1/catalogo/modelos").exchange().expectStatus().isUnauthorized();
+        client.get().uri("/api/v1/catalogo/modelos").headers(h -> h.setBearerAuth(token(ADMIN)))
+                .exchange().expectStatus().isForbidden();
+        client.get().uri("/api/v1/catalogo/modelos").headers(h -> h.setBearerAuth(token(MARIA)))
+                .exchange().expectStatus().isOk().expectBody()
+                .jsonPath("$[0].modelo").isEqualTo("Elétrica").jsonPath("$[0].disponiveis").isEqualTo(1)
+                .jsonPath("$[0].codigo").doesNotExist().jsonPath("$[0].id").doesNotExist();
+        client.get().uri("/api/v1/bicicletas").headers(h -> h.setBearerAuth(token(MARIA)))
+                .exchange().expectStatus().isForbidden();
+    }
+
+    @Test
+    void catalogo_AgrupaModelosEIgnoraOcupadasManutencaoEExcluidas() {
+        cadastrarCliente(MARIA);
+        cadastrarBicicleta("BIKE-001", "Urbana"); cadastrarBicicleta("BIKE-002", "urbana");
+        cadastrarBicicleta("BIKE-003", "Elétrica"); cadastrarBicicleta("BIKE-004", "Passeio");
+        alterarStatus("BIKE-003", "MANUTENCAO").expectStatus().isOk().expectBody(Void.class);
+        excluirBicicleta(ADMIN, "BIKE-004").expectStatus().isNoContent();
+        criarLocacao(MARIA, "BIKE-001");
+        client.get().uri("/api/v1/catalogo/modelos").headers(h -> h.setBearerAuth(token(MARIA)))
+                .exchange().expectStatus().isOk().expectBody()
+                .jsonPath("$.length()").isEqualTo(1).jsonPath("$[0].disponiveis").isEqualTo(1);
+    }
+
+    @Test
+    void locacao_EscolheBicicletaLivreDoModeloSolicitado() {
+        cadastrarCliente(MARIA);
+        cadastrarBicicleta("BIKE-001", "Urbana"); cadastrarBicicleta("BIKE-002", "Elétrica");
+        Map<String, Object> body = pedido(null); body.put("modeloBicicleta", "elétrica");
+        client.post().uri("/api/v1/locacoes").headers(h -> h.setBearerAuth(token(MARIA)))
+                .contentType(MediaType.APPLICATION_JSON).bodyValue(body).exchange().expectStatus().isCreated().expectBody()
+                .jsonPath("$.codigoBicicleta").isEqualTo("BIKE-002").jsonPath("$.modeloBicicleta").isEqualTo("Elétrica");
+        assertThat(bicicletas.findByCodigo("BIKE-001").orElseThrow().getStatus()).isEqualTo(Bicicleta.Status.LIVRE);
+        client.post().uri("/api/v1/locacoes").headers(h -> h.setBearerAuth(token(MARIA)))
+                .contentType(MediaType.APPLICATION_JSON).bodyValue(body).exchange().expectStatus().isEqualTo(409);
+    }
+
+    @Test
+    void locacao_RejeitaCodigoComModeloEModeloInvalido() {
+        cadastrarCliente(MARIA); cadastrarBicicleta("BIKE-001");
+        Map<String, Object> body = pedido("BIKE-001"); body.put("modeloBicicleta", "Urbana");
+        client.post().uri("/api/v1/locacoes").headers(h -> h.setBearerAuth(token(MARIA)))
+                .contentType(MediaType.APPLICATION_JSON).bodyValue(body).exchange().expectStatus().isEqualTo(422);
+        body.remove("codigoBicicleta"); body.put("modeloBicicleta", " ");
+        client.post().uri("/api/v1/locacoes").headers(h -> h.setBearerAuth(token(MARIA)))
+                .contentType(MediaType.APPLICATION_JSON).bodyValue(body).exchange().expectStatus().isEqualTo(422);
+        assertThat(locacoes.count()).isZero();
+    }
+
+    @Test
+    void exclusao_ExigeAdminERemoveDaFrotaSemPermitirReusoDoCodigo() {
+        cadastrarBicicleta("BIKE-001");
+        client.delete().uri("/api/v1/bicicletas/BIKE-001").exchange().expectStatus().isUnauthorized();
+        excluirBicicleta(MARIA, "BIKE-001").expectStatus().isForbidden();
+        excluirBicicleta(ADMIN, "BIKE-001").expectStatus().isNoContent();
+        assertThat(bicicletas.findByCodigo("BIKE-001").orElseThrow().isAtivo()).isFalse();
+        assertThat(bicicletas.findByCodigo("BIKE-001").orElseThrow().getModificadoPor()).isEqualTo(ADMIN);
+        client.get().uri("/api/v1/bicicletas").headers(h -> h.setBearerAuth(token(ADMIN)))
+                .exchange().expectStatus().isOk().expectBody().jsonPath("$.length()").isEqualTo(0);
+        client.get().uri("/api/v1/bicicletas/BIKE-001").headers(h -> h.setBearerAuth(token(ADMIN)))
+                .exchange().expectStatus().isNotFound();
+        excluirBicicleta(ADMIN, "BIKE-001").expectStatus().isNotFound();
+        client.post().uri("/api/v1/bicicletas").headers(h -> h.setBearerAuth(token(ADMIN)))
+                .contentType(MediaType.APPLICATION_JSON).bodyValue(Map.of("codigo", "BIKE-001", "modelo", "Nova"))
+                .exchange().expectStatus().isEqualTo(409);
+    }
+
+    @Test
+    void exclusao_BloqueiaBicicletaOcupadaEPreservaHistoricoAoFinalizar() {
+        cadastrarCliente(MARIA); cadastrarBicicleta("BIKE-001");
+        LocacaoResponseDTO rental = criarLocacao(MARIA, "BIKE-001");
+        excluirBicicleta(ADMIN, "BIKE-001").expectStatus().isEqualTo(409);
+        devolver(MARIA, rental.id(), false).expectStatus().isOk().expectBody(Void.class);
+        excluirBicicleta(ADMIN, "BIKE-001").expectStatus().isNoContent();
+        client.get().uri("/api/v1/locacoes/{id}", rental.id()).headers(h -> h.setBearerAuth(token(MARIA)))
+                .exchange().expectStatus().isOk().expectBody().jsonPath("$.codigoBicicleta").isEqualTo("BIKE-001");
+        client.get().uri("/api/v1/relatorios/locacoes").headers(h -> h.setBearerAuth(token(ADMIN)))
+                .exchange().expectStatus().isOk().expectBody().jsonPath("$.length()").isEqualTo(1);
+        alugar(MARIA, "BIKE-001").expectStatus().isNotFound();
+        alugar(MARIA, null).expectStatus().isEqualTo(409);
+    }
+
+    @Test
+    void locacaoPorModelo_ConcorrenciaNaoDuplicaBicicleta() throws Exception {
+        cadastrarCliente(MARIA); cadastrarCliente(JOAO); cadastrarBicicleta("BIKE-001", "Elétrica");
+        String maria = token(MARIA), joao = token(JOAO);
+        Map<String, Object> body = pedido(null); body.put("modeloBicicleta", "Elétrica");
+        CountDownLatch ready = new CountDownLatch(2), start = new CountDownLatch(1);
+        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+            List<Future<Integer>> responses = new ArrayList<>();
+            for (String accessToken : List.of(maria, joao)) responses.add(pool.submit(() -> {
+                ready.countDown(); start.await();
+                return client.post().uri("/api/v1/locacoes").headers(h -> h.setBearerAuth(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON).bodyValue(body).exchange().expectBody().returnResult().getStatus().value();
+            }));
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue(); start.countDown();
+            assertThat(List.of(responses.get(0).get(20, TimeUnit.SECONDS), responses.get(1).get(20, TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(201, 409);
+        }
+        assertThat(locacoes.count()).isEqualTo(1);
+    }
+
+    @Test
+    void novaColunaAtivo_PossuiPadraoParaRegistrosSemValorExplicito() {
+        jdbc.update("insert into bicicletas (codigo, modelo, status) values ('BIKE-001', 'Urbana', 'LIVRE')");
+        assertThat(bicicletas.findByCodigo("BIKE-001").orElseThrow().isAtivo()).isTrue();
+    }
+
+    WebTestClient.ResponseSpec excluirBicicleta(String user, String code) {
+        return client.delete().uri("/api/v1/bicicletas/{codigo}", code).headers(h -> h.setBearerAuth(token(user))).exchange();
     }
 
     String token(String username) {
@@ -542,8 +659,12 @@ class LocadoraIT {
     }
 
     BicicletaResponseDTO cadastrarBicicleta(String codigo) {
+        return cadastrarBicicleta(codigo, "Urbana");
+    }
+
+    BicicletaResponseDTO cadastrarBicicleta(String codigo, String modelo) {
         return client.post().uri("/api/v1/bicicletas").headers(h -> h.setBearerAuth(token(ADMIN)))
-                .contentType(MediaType.APPLICATION_JSON).bodyValue(Map.of("codigo", codigo, "modelo", "Urbana"))
+                .contentType(MediaType.APPLICATION_JSON).bodyValue(Map.of("codigo", codigo, "modelo", modelo))
                 .exchange().expectStatus().isCreated().expectHeader().exists("Location")
                 .expectBody(BicicletaResponseDTO.class).returnResult().getResponseBody();
     }

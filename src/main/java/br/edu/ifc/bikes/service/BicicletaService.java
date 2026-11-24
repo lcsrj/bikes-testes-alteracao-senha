@@ -39,12 +39,12 @@ public class BicicletaService {
     }
 
     public BicicletaResponseDTO getByCodigo(String codigo) {
-        return BicicletaResponseDTO.from(bicicletaRepository.findByCodigo(normalizar(codigo))
+        return BicicletaResponseDTO.from(bicicletaRepository.findByCodigoAndAtivoTrue(normalizar(codigo))
                 .orElseThrow(() -> new EntityNotFoundException("Bicicleta não encontrada")));
     }
 
     public List<BicicletaResponseDTO> getAll() {
-        return bicicletaRepository.findAllByOrderByCodigoAsc().stream().map(BicicletaResponseDTO::from).toList();
+        return bicicletaRepository.findAllByAtivoTrueOrderByCodigoAsc().stream().map(BicicletaResponseDTO::from).toList();
     }
 
     @Transactional
@@ -63,4 +63,16 @@ public class BicicletaService {
     }
 
     private String normalizar(String codigo) { return codigo.strip().toUpperCase(Locale.ROOT); }
+
+    @Transactional
+    public void excluir(String codigo) {
+        Bicicleta bicicleta = bicicletaRepository.findByCodigoForUpdate(normalizar(codigo))
+                .orElseThrow(() -> new EntityNotFoundException("Bicicleta não encontrada"));
+        if (bicicleta.getStatus() == Bicicleta.Status.OCUPADA
+                || locacaoRepository.existsByBicicletaIdAndStatus(bicicleta.getId(), Locacao.Status.ATIVA)) {
+            throw new NegocioException("Devolva a bicicleta antes de excluí-la da frota");
+        }
+        bicicleta.setAtivo(false);
+        bicicletaRepository.saveAndFlush(bicicleta);
+    }
 }

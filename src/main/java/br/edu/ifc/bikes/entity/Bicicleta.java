@@ -19,6 +19,9 @@ public class Bicicleta extends EntidadeAuditavel {
     @Column(nullable = false, length = 100)
     private String modelo;
 
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean ativo = true;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Status status = Status.LIVRE;

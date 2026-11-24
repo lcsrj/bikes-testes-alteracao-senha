@@ -7,6 +7,7 @@ const dialog = document.getElementById('dialog');
 let account = null;
 let config;
 let profile = null;
+let availableModels = [];
 let version = 0;
 let pageAbort;
 let currentData = [];
@@ -15,7 +16,7 @@ let committedHash = location.hash;
 let allowNavigation = false;
 const isAdmin = () => account?.role === 'ADMIN';
 const link = (hash, text, type = 'primary', symbol = '') => `<a class="button ${type}" href="#/${hash}">${symbol ? icon(symbol) : ''}${text}</a>`;
-const button = (action, text, value = '', type = 'quiet small') => `<button type="button" class="button ${type}" data-action="${action}" data-id="${e(value)}">${text}</button>`;
+const button = (action, text, value = '', type = 'quiet small', disabled = false) => `<button type="button" class="button ${type}" data-action="${action}" data-id="${e(value)}" ${disabled ? 'disabled' : ''}>${text}</button>`;
 const title = (heading, subtitle, action = '') => `<div class="page-heading"><div><h1 tabindex="-1">${heading}</h1><p>${subtitle}</p></div>${action}</div>`;
 const getRoute = () => {
   const [path, query] = location.hash.replace(/^#\/?/, '').split('?');
@@ -89,7 +90,7 @@ async function route() {
     if (path === 'inicio') content = await overview();
     else if (path === 'conta') content = accountPage();
     else if (path === 'perfil' && !isAdmin()) { profile = await loadProfile(); content = profilePage(); }
-    else if (path === 'nova-locacao' && !isAdmin()) { profile = await loadProfile(); content = rentalForm(); }
+    else if (path === 'nova-locacao' && !isAdmin()) { [profile, availableModels] = await Promise.all([loadProfile(), api('/catalogo/modelos')]); content = rentalForm(); }
     else if (path === 'locacoes' && !isAdmin()) content = await rentalList(false);
     else if (path === 'relatorios' && isAdmin()) content = await rentalList(true);
     else if (path === 'frota' && isAdmin()) content = await fleet();
@@ -118,8 +119,8 @@ function stats(items) {
   return `<div class="stats">${items.map(([label, value, symbol, hint]) => `<article class="stat"><div><span>${label}</span><span class="stat-icon">${icon(symbol)}</span></div><strong>${value}</strong><small>${hint}</small></article>`).join('')}</div>`;
 }
 
-function rentalRows(items, admin = false) {
-  return items.map(r => `<tr><td><strong>#${r.locacaoId || r.id}</strong>${admin ? `<span class="cell-sub">${e(r.nomeCliente)}</span>` : ''}</td><td><strong>${e(r.codigoBicicleta)}</strong></td><td>${date(r.dataRetirada)}</td><td>${badge(r.status)}</td><td>${r.status === 'FINALIZADA' ? money(r.valor) : 'Em andamento'}</td><td>${button('rental-detail', 'Ver detalhes', r.locacaoId || r.id)}</td></tr>`);
+function rentalRows(items, admin = false, report = false) {
+  return items.map(r => `<tr><td><strong>#${r.locacaoId || r.id}</strong>${admin && !report ? `<span class="cell-sub">${e(r.nomeCliente)}</span>` : ''}</td>${report ? `<td>${e(r.nomeCliente)}</td>` : ''}<td><strong>${e(r.codigoBicicleta)}</strong></td><td>${date(r.dataRetirada)}</td>${report ? `<td>${r.dataDevolucao ? date(r.dataDevolucao) : 'Pendente'}</td><td>${duration(r.duracaoSegundos, true)}</td>` : ''}<td>${badge(r.status)}</td><td>${r.status === 'FINALIZADA' ? money(r.valor) : 'Em andamento'}</td><td>${button('rental-detail', 'Ver detalhes', r.locacaoId || r.id)}</td></tr>`);
 }
 
 async function overview() {
@@ -157,8 +158,11 @@ async function rentalList(admin) {
   const rentals = await api(admin ? '/relatorios/locacoes' : '/locacoes/me');
   currentData = rentals;
   const result = slice([...rentals].sort((a, b) => (b.locacaoId || b.id) - (a.locacaoId || a.id)), r => `${r.locacaoId || r.id} ${r.codigoBicicleta} ${r.nomeCliente}`);
-  return title(admin ? 'Locações e relatórios' : 'Minhas locações', admin ? 'Acompanhe retiradas, devoluções e os valores de cada locação.' : 'Acompanhe seus trajetos e devolva a bicicleta quando terminar.', !admin ? link('nova-locacao', 'Alugar bicicleta', 'primary', 'plus') : '')
-    + `<section class="panel">${filters(admin ? 'cliente, bicicleta ou locação' : 'bicicleta ou locação', [['ATIVA', 'Em andamento'], ['FINALIZADA', 'Finalizada']])}${result.rows.length ? table(['Locação', 'Bicicleta', 'Retirada', 'Status', 'Valor', '<span class="sr-only">Ações</span>'], rentalRows(result.rows, admin), admin ? 'Relatório de locações' : 'Minhas locações') : empty('Nenhuma locação encontrada', 'Tente outra busca ou limpe os filtros.')}${result.foot}</section><p class="page-note">Os valores das locações em andamento são calculados na devolução. Horários em ${e(config.timezone)}.</p>`;
+  const headers = admin
+    ? ['Locação', 'Cliente', 'Bicicleta', 'Retirada', 'Devolução efetiva', 'Duração', 'Status', 'Valor', '<span class="sr-only">Ações</span>']
+    : ['Locação', 'Bicicleta', 'Retirada', 'Status', 'Valor', '<span class="sr-only">Ações</span>'];
+  return title(admin ? 'Locações e relatórios' : 'Minhas locações', admin ? 'Acompanhe retiradas, devoluções e os valores de cada locação.' : 'Acompanhe seus trajetos e devolva a bicicleta quando terminar.', admin ? button('retry', 'Atualizar relatório', '', 'secondary') : link('nova-locacao', 'Alugar bicicleta', 'primary', 'plus'))
+    + `<section class="panel">${filters(admin ? 'cliente, bicicleta ou locação' : 'bicicleta ou locação', [['ATIVA', 'Em andamento'], ['FINALIZADA', 'Finalizada']])}${admin ? '<p class="report-hint">Em telas menores, deslize a tabela para ver todas as colunas.</p>' : ''}${result.rows.length ? table(headers, rentalRows(result.rows, admin, admin), admin ? 'Relatório de locações' : 'Minhas locações') : empty('Nenhuma locação encontrada', 'Tente outra busca ou limpe os filtros.')}${result.foot}</section><p class="page-note">${admin ? 'A duração em andamento mostra o tempo até a última atualização. A devolução fica pendente até a finalização. ' : ''}Os valores das locações em andamento são calculados na devolução. Horários em ${e(config.timezone)}.</p>`;
 }
 
 async function fleet() {
@@ -180,9 +184,13 @@ function profilePage() {
   return title('Meus dados', profile ? 'Seu cadastro de cliente na locadora.' : 'Complete seu cadastro para começar a pedalar.') + `<section class="panel form-panel">${profile ? `<div class="section-heading"><h2>Cadastro de cliente</h2>${badge('CLIENTE')}</div>${clientDetails(profile)}<p class="page-note">Se precisar corrigir seus dados, entre em contato com a locadora.</p>` : `<h2>Quem vai pedalar?</h2><p>Seu cadastro fica associado à conta ${e(account.username)}.</p><form novalidate id="profile" class="form-grid">${errorArea()}${field('nome', 'Nome completo', { wide: true, attributes: 'autocomplete="name" minlength="2" maxlength="100"' })}${field('cpf', 'CPF', { attributes: 'inputmode="numeric" autocomplete="off" pattern="[0-9]{11}" maxlength="11"', hint: DEMO ? 'CPF de teste: 39053344705. Informe só os números.' : '11 números, sem pontos e traço.' })}${field('telefone', 'Telefone (opcional)', { optional: true, attributes: 'type="tel" autocomplete="tel" maxlength="20"' })}${field('email', 'E-mail de contato (opcional)', { optional: true, wide: true, attributes: 'type="email" autocomplete="email" maxlength="100"', value: account.username })}<div class="actions wide"><button class="button primary" type="submit">Concluir cadastro${icon('check')}</button></div></form>`}</section>`;
 }
 
+function modelOptions() {
+  return `<option value="">${availableModels.length ? 'Qualquer modelo disponível' : 'Nenhum modelo disponível no momento'}</option>${availableModels.map(model => `<option value="${e(model.modelo)}">${e(model.modelo)} · ${model.disponiveis} ${model.disponiveis === 1 ? 'disponível' : 'disponíveis'}</option>`).join('')}`;
+}
+
 function rentalForm() {
   if (!profile) return title('Alugar bicicleta', 'Antes do primeiro trajeto, precisamos do seu cadastro.') + empty('Só falta completar seus dados', 'Cadastre seu nome e CPF. É rápido e você só precisa fazer uma vez.', link('perfil', 'Completar cadastro'));
-  return title('Alugar bicicleta', 'Escolha a previsão de devolução. A gente cuida do próximo passo.') + `<div class="rental-layout"><section class="panel form-panel"><form novalidate id="rental" class="form-grid">${errorArea()}<div class="wide section-heading"><h2>Seu trajeto</h2></div>${field('codigoBicicleta', 'Código da bicicleta (opcional)', { optional: true, attributes: 'maxlength="30" pattern="[A-Za-z0-9_-]{3,30}" autocapitalize="characters"', hint: 'O código está na bicicleta. Deixe em branco para receber uma disponível.' })}${field('dataDevolucaoPrevista', 'Previsão de devolução', { attributes: `type="datetime-local" min="${localNow(config.timezone, 1)}"`, value: localNow(config.timezone, 120), hint: `Horário da locadora: ${e(config.timezone)}.` })}<div class="wide section-heading separated"><div><h2>Dados do cartão</h2><p>Registro acadêmico: nenhum pagamento é processado. Use dados de teste.</p></div></div>${field('cartao.titular', 'Nome no cartão', { wide: true, attributes: 'autocomplete="off" minlength="2" maxlength="100"' })}${field('cartao.numero', 'Número do cartão', { wide: true, attributes: 'inputmode="numeric" autocomplete="off" pattern="[0-9]{13,19}" maxlength="19"', hint: 'Somente números. Para testar: 4111111111111111.' })}${field('cartao.mesValidade', 'Mês de validade', { attributes: 'type="number" min="1" max="12" inputmode="numeric" placeholder="MM"' })}${field('cartao.anoValidade', 'Ano de validade', { attributes: 'type="number" min="2000" max="9999" inputmode="numeric" placeholder="AAAA"' })}${field('cartao.cvv', 'Código de segurança', { attributes: 'type="password" inputmode="numeric" autocomplete="off" pattern="[0-9]{3,4}" minlength="3" maxlength="4"', hint: '3 ou 4 números. Não será armazenado.' })}<div class="actions wide"><button type="submit" class="button primary">Confirmar locação${icon('arrow')}</button><a class="button secondary" href="#/locacoes">Cancelar</a></div></form></section><aside class="rental-summary"><div class="bike-feature"><h2>Seu próximo trajeto</h2><img src="./assets/city-bike.png" alt="Bicicleta urbana verde com cesta" width="1536" height="1024"><small>Imagem ilustrativa</small></div><div class="panel"><p class="price-label">Valor da locação</p><p class="price">${money(config.valorHora)}<span>/ hora</span></p><p>Valor proporcional ao tempo de uso, com cobrança mínima de 1 minuto.</p><hr><p>O valor final é calculado na devolução. O sistema guarda apenas os quatro últimos números do cartão.</p></div></aside></div>`;
+  return title('Alugar bicicleta', 'Escolha a previsão de devolução. A gente cuida do próximo passo.') + `<div class="rental-layout"><section class="panel form-panel"><form novalidate id="rental" class="form-grid">${errorArea()}<div class="wide section-heading"><h2>Seu trajeto</h2>${button('refresh-models', 'Atualizar modelos')}</div><div class="field wide"><label for="modeloBicicleta">Modelo da bicicleta</label><select id="modeloBicicleta" name="modeloBicicleta" aria-describedby="modeloBicicleta-hint" ${availableModels.length ? '' : 'disabled'}>${modelOptions()}</select><small id="modeloBicicleta-hint">Escolha um modelo ou deixe o sistema selecionar. Informar um código específico substitui esta escolha.</small><small class="field-error" id="modeloBicicleta-error"></small></div>${field('codigoBicicleta', 'Código da bicicleta (opcional)', { optional: true, attributes: 'maxlength="30" pattern="[A-Za-z0-9_-]{3,30}" autocapitalize="characters"', hint: 'O código está na bicicleta. Deixe em branco para receber uma disponível.' })}${field('dataDevolucaoPrevista', 'Previsão de devolução', { attributes: `type="datetime-local" min="${localNow(config.timezone, 1)}"`, value: localNow(config.timezone, 120), hint: `Horário da locadora: ${e(config.timezone)}.` })}<div class="wide section-heading separated"><div><h2>Dados do cartão</h2><p>Registro acadêmico: nenhum pagamento é processado. Use dados de teste.</p></div></div>${field('cartao.titular', 'Nome no cartão', { wide: true, attributes: 'autocomplete="off" minlength="2" maxlength="100"' })}${field('cartao.numero', 'Número do cartão', { wide: true, attributes: 'inputmode="numeric" autocomplete="off" pattern="[0-9]{13,19}" maxlength="19"', hint: 'Somente números. Para testar: 4111111111111111.' })}${field('cartao.mesValidade', 'Mês de validade', { attributes: 'type="number" min="1" max="12" inputmode="numeric" placeholder="MM"' })}${field('cartao.anoValidade', 'Ano de validade', { attributes: 'type="number" min="2000" max="9999" inputmode="numeric" placeholder="AAAA"' })}${field('cartao.cvv', 'Código de segurança', { attributes: 'type="password" inputmode="numeric" autocomplete="off" pattern="[0-9]{3,4}" minlength="3" maxlength="4"', hint: '3 ou 4 números. Não será armazenado.' })}<div class="actions wide"><button type="submit" class="button primary">Confirmar locação${icon('arrow')}</button><a class="button secondary" href="#/locacoes">Cancelar</a></div></form></section><aside class="rental-summary"><div class="bike-feature"><h2>Seu próximo trajeto</h2><img src="./assets/city-bike.png" alt="Bicicleta urbana verde com cesta" width="1536" height="1024"><small>Imagem ilustrativa</small></div><div class="panel"><p class="price-label">Valor da locação</p><p class="price">${money(config.valorHora)}<span>/ hora</span></p><p>Valor proporcional ao tempo de uso, com cobrança mínima de 1 minuto.</p><hr><p>O valor final é calculado na devolução. O sistema guarda apenas os quatro últimos números do cartão.</p></div></aside></div>`;
 }
 
 function accountPage() {
@@ -202,7 +210,7 @@ async function rentalDetail(id) {
   try {
     const item = await api(`/locacoes/${encodeURIComponent(id)}`);
     if (!dialog.open) return;
-    dialog.innerHTML = `<div class="dialog-inner">${button('close-dialog', `${icon('close')}<span class="sr-only">Fechar</span>`, '', 'icon-button dialog-close')}<h2 id="dialog-title">${item.status === 'FINALIZADA' ? 'Comprovante · Locação' : 'Locação'} #${item.id}</h2>${badge(item.status)}${details([['Cliente', e(item.nomeCliente)], ['Bicicleta', e(item.codigoBicicleta)], ['Retirada', date(item.dataRetirada)], ['Devolução prevista', date(item.dataDevolucaoPrevista)], ['Devolução realizada', date(item.dataDevolucao)], ['Tempo de uso', duration(item.duracaoSegundos)], ['Valor por hora contratado', money(item.valorHora)], ['Cartão', `Final ${e(item.cartaoFinal)}`], ['Valor final', item.status === 'FINALIZADA' ? `<strong class="receipt-total">${money(item.valor)}</strong>` : 'Calculado na devolução']])}${item.status === 'ATIVA' ? `<div class="notice compact"><p>O valor final considera o tempo de uso, com mínimo de 1 minuto. A devolução libera a bicicleta ou a envia para manutenção.</p></div><form novalidate id="return" data-rental="${item.id}">${errorArea()}<label class="checkbox"><input type="checkbox" name="manutencao"> A bicicleta precisa de manutenção</label><div class="actions">${button('close-dialog', 'Continuar usando', '', 'secondary')}<button class="button primary" type="submit">Confirmar devolução</button></div></form>` : `<div class="actions">${button('close-dialog', 'Fechar comprovante', '', 'primary')}</div>`}</div>`;
+    dialog.innerHTML = `<div class="dialog-inner">${button('close-dialog', `${icon('close')}<span class="sr-only">Fechar</span>`, '', 'icon-button dialog-close')}<h2 id="dialog-title">${item.status === 'FINALIZADA' ? 'Comprovante · Locação' : 'Locação'} #${item.id}</h2>${badge(item.status)}${details([['Cliente', e(item.nomeCliente)], ['Bicicleta', e(item.codigoBicicleta)], ['Modelo', e(item.modeloBicicleta || 'Não informado')], ['Retirada', date(item.dataRetirada)], ['Devolução prevista', date(item.dataDevolucaoPrevista)], ['Devolução realizada', date(item.dataDevolucao)], ['Tempo de uso', duration(item.duracaoSegundos)], ['Valor por hora contratado', money(item.valorHora)], ['Cartão', `Final ${e(item.cartaoFinal)}`], ['Valor final', item.status === 'FINALIZADA' ? `<strong class="receipt-total">${money(item.valor)}</strong>` : 'Calculado na devolução']])}${item.status === 'ATIVA' ? `<div class="notice compact"><p>O valor final considera o tempo de uso, com mínimo de 1 minuto. A devolução libera a bicicleta ou a envia para manutenção.</p></div><form novalidate id="return" data-rental="${item.id}">${errorArea()}<label class="checkbox"><input type="checkbox" name="manutencao"> A bicicleta precisa de manutenção</label><div class="actions">${button('close-dialog', 'Continuar usando', '', 'secondary')}<button class="button primary" type="submit">Confirmar devolução</button></div></form>` : `<div class="actions">${button('close-dialog', 'Fechar comprovante', '', 'primary')}</div>`}</div>`;
     attachForms(dialog);
     dialog.querySelector('button')?.focus();
   } catch (error) {
@@ -213,12 +221,21 @@ async function rentalDetail(id) {
 async function bikeDetail(code) {
   const item = currentData.find(x => x.codigo === code);
   if (!item) return;
-  openDialog(`<h2 id="dialog-title">Bicicleta ${e(item.codigo)}</h2>${badge(item.status)}${details([['Modelo', e(item.modelo)], ['Código', e(item.codigo)]])}${auditDetails(item)}${item.status === 'OCUPADA' ? '<div class="notice compact"><p>A bicicleta está em uso. Finalize a locação para liberá-la ou enviá-la à manutenção.</p></div>' : `<form novalidate id="bike-status" data-code="${e(item.codigo)}">${errorArea()}<div class="field"><label for="status">Situação da bicicleta</label><select id="status" name="status"><option value="LIVRE" ${item.status === 'LIVRE' ? 'selected' : ''}>Disponível para locação</option><option value="MANUTENCAO" ${item.status === 'MANUTENCAO' ? 'selected' : ''}>Em manutenção</option></select></div><button class="button primary" type="submit">Salvar situação</button></form>`}`);
+  openDialog(`<h2 id="dialog-title">Bicicleta ${e(item.codigo)}</h2>${badge(item.status)}${details([['Modelo', e(item.modelo)], ['Código', e(item.codigo)]])}${auditDetails(item)}${item.status === 'OCUPADA' ? '<div class="notice compact"><p>A bicicleta está em uso. Finalize a locação para liberá-la ou enviá-la à manutenção.</p></div>' : `<form novalidate id="bike-status" data-code="${e(item.codigo)}">${errorArea()}<div class="field"><label for="status">Situação da bicicleta</label><select id="status" name="status"><option value="LIVRE" ${item.status === 'LIVRE' ? 'selected' : ''}>Disponível para locação</option><option value="MANUTENCAO" ${item.status === 'MANUTENCAO' ? 'selected' : ''}>Em manutenção</option></select></div><button class="button primary" type="submit">Salvar situação</button></form>`}<div class="actions">${button('delete-bike', 'Excluir bicicleta', item.codigo, 'danger', item.status === 'OCUPADA')}</div>`);
   attachForms(dialog);
 }
 
+function requestBikeDeletion(code, control) {
+  if (dialog.querySelector('.delete-confirm')) return;
+  dialog.querySelector('#bike-status')?.setAttribute('inert', '');
+  control.hidden = true;
+  dialog.querySelector('.dialog-inner').insertAdjacentHTML('beforeend', `<section class="notice compact delete-confirm" aria-labelledby="delete-title"><h3 id="delete-title">Excluir a bicicleta ${e(code)}?</h3><p>Ela sai da frota e do catálogo. As locações já registradas permanecem no histórico, e o código não poderá ser reutilizado.</p>${errorArea()}<div class="actions">${button('cancel-bike-deletion', 'Cancelar exclusão', '', 'secondary')}${button('confirm-bike-deletion', 'Confirmar exclusão', code, 'danger')}</div></section>`);
+  dialog.querySelector('[data-action="cancel-bike-deletion"]').focus();
+}
+
 function newBike() {
-  openDialog(`<h2 id="dialog-title">Cadastrar bicicleta</h2><p>A bicicleta será cadastrada como disponível para locação.</p><form novalidate id="bike">${errorArea()}${field('codigo', 'Código', { attributes: 'minlength="3" maxlength="30" pattern="[A-Z0-9_-]{3,30}" autocapitalize="characters"', hint: '3 a 30 caracteres: letras maiúsculas, números, hífen ou sublinhado.' })}${field('modelo', 'Modelo', { attributes: 'minlength="2" maxlength="100" placeholder="Ex.: Urbana aro 26"' })}<div class="actions">${button('close-dialog', 'Cancelar', '', 'secondary')}<button class="button primary" type="submit">Cadastrar bicicleta</button></div></form>`, 'input');
+  const models = [...new Set(['Urbana', 'Mountain Bike', 'Elétrica', 'Passeio', 'Dobrável', 'Infantil', ...currentData.map(item => item.modelo).filter(Boolean)])];
+  openDialog(`<h2 id="dialog-title">Cadastrar bicicleta</h2><p>A bicicleta será cadastrada como disponível para locação.</p><form novalidate id="bike">${errorArea()}${field('codigo', 'Código', { attributes: 'minlength="3" maxlength="30" pattern="[A-Z0-9_-]{3,30}" autocapitalize="characters"', hint: '3 a 30 caracteres: letras maiúsculas, números, hífen ou sublinhado.' })}${field('modelo', 'Modelo', { attributes: 'minlength="2" maxlength="100" list="modelos-frota" placeholder="Ex.: Urbana, Elétrica ou Mountain Bike"' })}<datalist id="modelos-frota">${models.map(model => `<option value="${e(model)}"></option>`).join('')}</datalist><div class="actions">${button('close-dialog', 'Cancelar', '', 'secondary')}<button class="button primary" type="submit">Cadastrar bicicleta</button></div></form>`, 'input');
   attachForms(dialog);
 }
 
@@ -237,7 +254,13 @@ function attachForms(scope = root) {
   scope.querySelectorAll('form:not([data-bound])').forEach(form => {
     form.dataset.bound = 'true';
     form.noValidate = true;
-    form.addEventListener('input', () => { if (form.id !== 'filters') dirty = true; });
+    form.addEventListener('input', event => {
+      if (form.id !== 'filters') dirty = true;
+      if (form.id === 'rental' && event.target.name === 'codigoBicicleta' && event.target.value.trim()) form.elements.namedItem('modeloBicicleta').value = '';
+    });
+    form.addEventListener('change', event => {
+      if (form.id === 'rental' && event.target.name === 'modeloBicicleta' && event.target.value) form.elements.namedItem('codigoBicicleta').value = '';
+    });
     form.addEventListener('submit', async event => {
       event.preventDefault();
       if (form.dataset.busy) return;
@@ -285,8 +308,9 @@ function attachForms(scope = root) {
           toast('Cadastro concluído. Você já pode alugar uma bicicleta.');
           location.hash = '#/nova-locacao';
         } else if (form.id === 'rental') {
+          if (clean.modeloBicicleta && !availableModels.some(model => model.modelo === clean.modeloBicicleta)) validation('Este modelo não está mais disponível. Escolha outro modelo ou atualize novamente.', 'modeloBicicleta');
           if (zonedInstant(clean.dataDevolucaoPrevista, config.timezone) <= Date.now()) validation('Escolha uma previsão de devolução futura no horário da locadora.', 'dataDevolucaoPrevista');
-          const item = await api('/locacoes', { method: 'POST', body: { codigoBicicleta: clean.codigoBicicleta || null, dataDevolucaoPrevista: `${clean.dataDevolucaoPrevista}:00`, cartao: { titular: clean['cartao.titular'], numero: clean['cartao.numero'], cvv: clean['cartao.cvv'], mesValidade: Number(clean['cartao.mesValidade']), anoValidade: Number(clean['cartao.anoValidade']) } } });
+          const item = await api('/locacoes', { method: 'POST', body: { codigoBicicleta: clean.codigoBicicleta || null, modeloBicicleta: clean.modeloBicicleta || null, dataDevolucaoPrevista: `${clean.dataDevolucaoPrevista}:00`, cartao: { titular: clean['cartao.titular'], numero: clean['cartao.numero'], cvv: clean['cartao.cvv'], mesValidade: Number(clean['cartao.mesValidade']), anoValidade: Number(clean['cartao.anoValidade']) } } });
           dirty = false;
           form.reset();
           toast(`Locação #${item.id} confirmada. Boa pedalada!`);
@@ -399,6 +423,41 @@ document.addEventListener('click', async event => {
       output.textContent = error.message; output.hidden = false; output.focus();
     } finally { control.disabled = false; }
   }
+  else if (action === 'refresh-models') {
+    control.disabled = true;
+    const form = document.getElementById('rental');
+    try {
+      const select = form.elements.namedItem('modeloBicicleta');
+      const previous = select.value;
+      availableModels = await api('/catalogo/modelos');
+      const matching = availableModels.find(model => model.modelo.toLocaleLowerCase('pt-BR') === previous.toLocaleLowerCase('pt-BR'));
+      select.innerHTML = modelOptions(); select.disabled = availableModels.length === 0 && !previous;
+      if (matching) select.value = matching.modelo;
+      else if (previous) {
+        select.insertAdjacentHTML('beforeend', `<option value="${e(previous)}">${e(previous)} · indisponível</option>`);
+        select.value = previous;
+      }
+      toast(previous && !matching ? 'O modelo escolhido ficou indisponível. Escolha outro modelo ou atualize novamente.' : availableModels.length ? 'Modelos disponíveis atualizados.' : 'Nenhum modelo livre no momento. Tente novamente mais tarde.');
+    } catch (error) { if (form.isConnected) showError(form, error); }
+    finally { control.disabled = false; }
+  }
+  else if (action === 'delete-bike') requestBikeDeletion(control.dataset.id, control);
+  else if (action === 'cancel-bike-deletion') {
+    dialog.querySelector('.delete-confirm')?.remove();
+    dialog.querySelector('#bike-status')?.removeAttribute('inert');
+    const trigger = dialog.querySelector('[data-action="delete-bike"]');
+    trigger.hidden = false; trigger.focus();
+  }
+  else if (action === 'confirm-bike-deletion') {
+    const section = control.closest('.delete-confirm');
+    section.dataset.busy = 'true'; control.disabled = true;
+    try {
+      await api(`/bicicletas/${encodeURIComponent(control.dataset.id)}`, { method: 'DELETE' });
+      dirty = false; closeDialog(); await route(); toast('Bicicleta excluída da frota. O histórico foi preservado.');
+    } catch (error) {
+      if (section.isConnected) { const output = section.querySelector('.form-error'); output.hidden = false; output.textContent = error.message; output.focus(); }
+    } finally { delete section.dataset.busy; control.disabled = false; }
+  }
   else if (action === 'new-bike') newBike();
   else if (action === 'bike-detail') bikeDetail(control.dataset.id);
   else if (action === 'rental-detail') rentalDetail(control.dataset.id);
@@ -407,7 +466,7 @@ document.addEventListener('click', async event => {
 });
 
 function logout(expired = false) {
-  ++version; account = null; profile = null; currentData = []; setToken(null); dirty = false;
+  ++version; account = null; profile = null; availableModels = []; currentData = []; setToken(null); dirty = false;
   if (dialog.open) closeDialog();
   root.replaceChildren();
   location.hash = '#/entrar';

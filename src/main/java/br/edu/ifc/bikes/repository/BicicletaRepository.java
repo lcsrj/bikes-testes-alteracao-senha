@@ -12,11 +12,20 @@ public interface BicicletaRepository extends JpaRepository<Bicicleta, Long> {
     Optional<Bicicleta> findByCodigo(String codigo);
     boolean existsByCodigo(String codigo);
     List<Bicicleta> findAllByOrderByCodigoAsc();
+    Optional<Bicicleta> findByCodigoAndAtivoTrue(String codigo);
+    List<Bicicleta> findAllByAtivoTrueOrderByCodigoAsc();
+    List<Bicicleta> findByStatusAndAtivoTrueOrderByModeloAsc(Bicicleta.Status status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select b from Bicicleta b where b.codigo = :codigo")
+    @Query("select b from Bicicleta b where b.codigo = :codigo and b.ativo = true")
     Optional<Bicicleta> findByCodigoForUpdate(String codigo);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Bicicleta> findFirstByStatusOrderByIdAsc(Bicicleta.Status status);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Bicicleta> findFirstByStatusAndAtivoTrueOrderByIdAsc(Bicicleta.Status status);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Bicicleta> findFirstByStatusAndAtivoTrueAndModeloIgnoreCaseOrderByIdAsc(Bicicleta.Status status, String modelo);
 }

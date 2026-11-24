@@ -24,6 +24,13 @@ test('exemplos abrem por perfil e mantêm consultas próprias', async () => {
   const admin = await login(call, 'admin@bikes.demo');
   assert.equal((await call('/bicicletas', { token: admin })).length, 8);
   assert.equal((await call('/relatorios/locacoes', { token: admin })).length, 8);
+  const before = (await call('/relatorios/locacoes', { token: admin })).find(r => r.locacaoId === 7);
+  assert.equal(before.duracaoSegundos, 5400);
+  advance(37);
+  const after = (await call('/relatorios/locacoes', { token: admin })).find(r => r.locacaoId === 7);
+  assert.equal(after.duracaoSegundos, 5437);
+  assert.equal(after.dataDevolucao, null);
+  assert.equal((await call('/locacoes/7', { token })).duracaoSegundos, after.duracaoSegundos);
   advance(3601);
   await assert.rejects(call('/auth/me', { token }), { status: 401 });
 });
@@ -90,4 +97,37 @@ test('senha alterada persiste sem gravar credenciais em texto puro', async () =>
   assert.ok(users.every(u => !('password' in u) && u.passwordHash.length === 64));
   await reloaded('/demo/reset', { method: 'POST' });
   assert.ok(await login(reloaded));
+});
+
+test('catálogo e exclusão respeitam perfil, disponibilidade e histórico', async () => {
+  const { call } = fixture();
+  const customer = await login(call), admin = await login(call, 'admin@bikes.demo');
+  const models = await call('/catalogo/modelos', { token: customer });
+  assert.equal(models.length, 5);
+  assert.ok(models.every(model => model.disponiveis > 0 && !('codigo' in model)));
+  await assert.rejects(call('/bicicletas/BIKE-003', { method: 'DELETE', token: customer }), { status: 403 });
+  await assert.rejects(call('/bicicletas/BIKE-001', { method: 'DELETE', token: admin }), { status: 409 });
+  await call('/bicicletas/BIKE-003', { method: 'DELETE', token: admin });
+  assert.ok(!(await call('/bicicletas', { token: admin })).some(b => b.codigo === 'BIKE-003'));
+  assert.ok(!(await call('/catalogo/modelos', { token: customer })).some(m => m.modelo === 'Elétrica City'));
+  await assert.rejects(call('/bicicletas/BIKE-003', { token: admin }), { status: 404 });
+  await assert.rejects(call('/locacoes', { method: 'POST', token: customer, body: rental('BIKE-003') }), { status: 404 });
+  await assert.rejects(call('/bicicletas', { method: 'POST', token: admin, body: { codigo: 'BIKE-003', modelo: 'Nova' } }), { status: 409 });
+  assert.equal((await call('/relatorios/locacoes', { token: admin })).length, 8);
+  assert.equal((await call('/locacoes/3', { token: admin })).modeloBicicleta, 'Elétrica City');
+});
+
+test('cliente escolhe o modelo e a reserva não usa outro modelo nem duplica bicicleta', async () => {
+  const { call } = fixture();
+  const token = await login(call), admin = await login(call, 'admin@bikes.demo');
+  const body = { ...rental(undefined), modeloBicicleta: 'Elétrica City' };
+  const responses = await Promise.allSettled([0, 1].map(() => call('/locacoes', { method: 'POST', token, body })));
+  assert.equal(responses.filter(r => r.status === 'fulfilled').length, 1);
+  assert.equal(responses.find(r => r.status === 'rejected').reason.status, 409);
+  const selected = responses.find(r => r.status === 'fulfilled').value;
+  assert.equal(selected.codigoBicicleta, 'BIKE-003');
+  assert.equal(selected.modeloBicicleta, 'Elétrica City');
+  assert.ok((await call('/bicicletas', { token: admin })).some(b => b.status === 'LIVRE'));
+  assert.ok(!(await call('/catalogo/modelos', { token })).some(model => model.modelo === body.modeloBicicleta));
+  await assert.rejects(call('/bicicletas/BIKE-003', { method: 'DELETE', token: admin }), { status: 409 });
 });

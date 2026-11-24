@@ -53,4 +53,12 @@ public class BicicletaController {
     public BicicletaResponseDTO updateStatus(@PathVariable String codigo, @Valid @RequestBody BicicletaStatusDTO request) {
         return bicicletaService.updateStatus(codigo, request);
     }
+
+    @DeleteMapping("/{codigo}")
+    @Operation(summary = "Excluir uma bicicleta da frota", description = "Remove da frota e do catálogo, preservando as locações históricas e reservando seu código. Bicicletas em uso não podem ser excluídas.")
+    @ApiResponse(responseCode = "204", description = "Bicicleta removida da frota")
+    public ResponseEntity<Void> delete(@PathVariable String codigo) {
+        bicicletaService.excluir(codigo);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -123,6 +123,11 @@ components:
     textColor: "{colors.primary}"
     rounded: "{rounded.DEFAULT}"
     padding: "11px 17px"
+  button-danger:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.danger}"
+    rounded: "{rounded.DEFAULT}"
+    padding: "11px 17px"
   button-small:
     padding: "6px 10px"
   input:
@@ -285,3 +290,7 @@ Botões transitam fundo e borda em 150ms; o menu móvel desliza em 180ms. O indi
 ## Demonstração para apresentação
 
 A versão de GitHub Pages preserva o mesmo sistema visual. O acesso rápido usa botões canônicos primário e secundário em uma superfície menta, com identificação textual de dados fictícios. Cabeçalho e rodapé continuam identificando a demonstração durante o uso. Os exemplos preenchem indicadores e tabelas a partir da base local; os valores acompanham as ações realizadas. No celular, o cabeçalho de acesso ocupa apenas a altura da marca.
+
+## Escolha de modelo e exclusão da frota
+
+O catálogo usa select nativo com nome e quantidade disponível. Atualizar preserva a escolha e os demais campos; um modelo que ficou indisponível permanece identificado até uma nova escolha explícita. O cadastro administrativo oferece sugestões por datalist nativo. A ação de exclusão usa a variante de botão com texto e borda da cor `danger`, mantendo a superfície branca. A confirmação usa o diálogo existente e separa cancelar de confirmar; o formulário inerte mantém opacidade de 0,5 e seus valores são preservados ao cancelar.

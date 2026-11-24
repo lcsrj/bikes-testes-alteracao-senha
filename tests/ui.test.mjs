@@ -13,6 +13,9 @@ test('valores e CPF usam os formatos brasileiros', () => {
   assert.equal(cpf('52998224725'), '529.982.247-25');
   assert.equal(duration(3665), '1h 1min');
   assert.equal(duration(null), 'Em andamento');
+  assert.equal(duration(0, true), '0h 0min 0s');
+  assert.equal(duration(59, true), '0h 0min 59s');
+  assert.equal(duration(3665, true), '1h 1min 5s');
 });
 
 test('datas locais do servidor não são reinterpretadas pelo fuso do navegador', () => {

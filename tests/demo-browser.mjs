@@ -33,14 +33,41 @@ try {
   await enter('cliente');
   check('Cliente vê seus próprios dados e locações', await page.getByText('Seu próximo caminho começa aqui, Lara.', { exact: true }).isVisible());
   await navigate('nova-locacao', 'Alugar bicicleta');
-  await page.locator('#codigoBicicleta').fill('BIKE-003');
+  await page.locator('#modeloBicicleta').selectOption('Elétrica City');
+  await page.locator('#codigoBicicleta').fill('BIKE-004');
+  check('Informar código substitui o modelo selecionado', await page.locator('#modeloBicicleta').inputValue() === '');
+  await page.locator('#modeloBicicleta').selectOption('Elétrica City');
+  check('Cliente escolhe entre modelos e a escolha limpa o código manual', await page.locator('#codigoBicicleta').inputValue() === '' && await page.locator('#modeloBicicleta option').count() > 2);
+  await page.screenshot({ path: join(output, 'escolha-modelo-desktop.png'), fullPage: true });
   await page.locator('[name="cartao.titular"]').fill('Cliente de Exemplo');
   await page.locator('[name="cartao.numero"]').fill('4111111111111111');
   await page.locator('[name="cartao.mesValidade"]').fill('12');
   await page.locator('[name="cartao.anoValidade"]').fill(String(new Date().getFullYear() + 2));
   await page.locator('[name="cartao.cvv"]').fill('123');
+  await page.evaluate(async () => {
+    const { demoApi } = await import(new URL('./assets/demo.js', document.baseURI));
+    const session = await demoApi('/demo/acesso', { method: 'POST', body: { role: 'ADMIN' } });
+    await demoApi('/bicicletas', { method: 'POST', token: session.accessToken, body: { codigo: 'REFRESH-001', modelo: 'Modelo temporário' } });
+  });
+  await page.getByRole('button', { name: 'Atualizar modelos', exact: true }).click();
+  await page.locator('#modeloBicicleta option[value="Modelo temporário"]').waitFor({ state: 'attached' });
+  await page.locator('#modeloBicicleta').selectOption('Modelo temporário');
+  await page.evaluate(async () => {
+    const { demoApi } = await import(new URL('./assets/demo.js', document.baseURI));
+    const session = await demoApi('/demo/acesso', { method: 'POST', body: { role: 'ADMIN' } });
+    await demoApi('/bicicletas/REFRESH-001', { method: 'DELETE', token: session.accessToken });
+  });
+  await page.getByRole('button', { name: 'Atualizar modelos', exact: true }).click();
+  await page.locator('#modeloBicicleta option').filter({ hasText: 'Modelo temporário · indisponível' }).waitFor({ state: 'attached' });
+  await page.getByRole('button', { name: 'Confirmar locação', exact: true }).click();
+  await page.locator('#modeloBicicleta[aria-invalid="true"]').waitFor();
+  check('Atualizar preserva o cartão e não troca um modelo indisponível por outro automaticamente',
+    await page.locator('#modeloBicicleta').inputValue() === 'Modelo temporário'
+    && await page.locator('[name="cartao.numero"]').inputValue() === '4111111111111111');
+  await page.locator('#modeloBicicleta').selectOption('Elétrica City');
   await page.getByRole('button', { name: 'Confirmar locação', exact: true }).click();
   await page.locator('dialog').getByRole('heading', { name: 'Locação #9', exact: true }).waitFor();
+  await page.locator('dialog').getByText('Elétrica City', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Continuar usando', exact: true }).click();
   check('Locação atualiza o histórico e a disponibilidade');
   const row = page.getByRole('row').filter({ has: page.getByText('#9', { exact: true }) });
@@ -61,6 +88,24 @@ try {
   await page.getByRole('button', { name: 'Salvar situação', exact: true }).click();
   await bike.getByText('Disponível', { exact: true }).waitFor();
   check('Administrador consulta e altera a mesma bicicleta do cliente');
+  await bike.getByRole('button', { name: 'Ver detalhes', exact: true }).click();
+  await page.locator('#status').selectOption('MANUTENCAO');
+  await page.getByRole('button', { name: 'Excluir bicicleta', exact: true }).click();
+  await page.getByRole('button', { name: 'Cancelar exclusão', exact: true }).click();
+  check('Cancelar exclusão preserva as alterações do formulário', await page.locator('#status').inputValue() === 'MANUTENCAO');
+  await page.getByRole('button', { name: 'Excluir bicicleta', exact: true }).click();
+  await page.screenshot({ path: join(output, 'excluir-bicicleta-desktop.png'), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(250);
+  check('Confirmação de exclusão cabe no celular', await page.locator('dialog').evaluate(el => el.scrollWidth <= el.clientWidth));
+  await page.screenshot({ path: join(output, 'excluir-bicicleta-mobile.png'), fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByRole('button', { name: 'Confirmar exclusão', exact: true }).click();
+  await page.locator('dialog').waitFor({ state: 'hidden' });
+  await page.getByRole('cell', { name: 'BIKE-004', exact: true }).waitFor();
+  check('Administrador exclui bicicleta da frota', await page.getByText('BIKE-003', { exact: true }).count() === 0);
+  await page.getByRole('row').filter({ has: page.getByText('BIKE-001', { exact: true }) }).getByRole('button', { name: 'Ver detalhes', exact: true }).click();
+  check('Bicicleta em uso não pode ser excluída', await page.getByRole('button', { name: 'Excluir bicicleta', exact: true }).isDisabled());
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Cadastrar bicicleta', exact: true }).first().click();
   await page.locator('#codigo').fill('DEMO-009'); await page.locator('#modelo').fill('Urbana de apresentação');
   await page.locator('dialog').getByRole('button', { name: 'Cadastrar bicicleta', exact: true }).click();
@@ -78,7 +123,35 @@ try {
   await page.keyboard.press('Escape');
   check('Consultas de clientes e usuários abrem os detalhes');
   await navigate('relatorios', 'Locações e relatórios');
+  check('Exclusão preserva a bicicleta no histórico de locações', await page.getByText('BIKE-003', { exact: true }).count() > 0);
+  for (const name of ['Cliente', 'Bicicleta', 'Retirada', 'Devolução efetiva', 'Duração', 'Status']) {
+    await page.getByRole('columnheader', { name, exact: true }).waitFor();
+  }
+  const returnedRow = page.getByRole('row').filter({ has: page.getByText('#9', { exact: true }) });
+  check('Relatório mostra cliente, devolução e duração sem abrir detalhes',
+    await returnedRow.locator('td').nth(1).innerText() === 'Lara Martins'
+    && /\d{2}\/\d{2}\/\d{4} às \d{2}:\d{2}/.test(await returnedRow.locator('td').nth(4).innerText())
+    && /^\d+h \d+min \d+s$/.test(await returnedRow.locator('td').nth(5).innerText()));
+  const activeRow = page.getByRole('row').filter({ has: page.getByText('#7', { exact: true }) });
+  check('Locação ativa apresenta devolução pendente e tempo decorrido',
+    await activeRow.locator('td').nth(4).innerText() === 'Pendente'
+    && /^1h 3\dmin \d+s$/.test(await activeRow.locator('td').nth(5).innerText()));
+  await page.getByRole('button', { name: 'Atualizar relatório', exact: true }).click();
+  await page.getByRole('columnheader', { name: 'Devolução efetiva', exact: true }).waitFor();
+  await page.screenshot({ path: join(output, 'relatorio-desktop.png'), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(250);
+  const reportRegion = page.getByRole('region', { name: 'Relatório de locações', exact: true });
+  await reportRegion.evaluate(el => { el.scrollLeft = el.scrollWidth; });
+  check('Colunas do relatório podem ser consultadas no celular',
+    await reportRegion.evaluate(el => el.scrollLeft > 0)
+    && await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  const returnColumn = await page.getByRole('columnheader', { name: 'Devolução efetiva', exact: true }).evaluate(el => el.offsetLeft);
+  await reportRegion.evaluate((el, offset) => { el.scrollLeft = offset; }, returnColumn);
+  await page.screenshot({ path: join(output, 'relatorio-mobile.png'), fullPage: true });
+  await reportRegion.evaluate(el => { el.scrollLeft = 0; });
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.locator('select[name="status"]').selectOption('FINALIZADA');
+  await page.getByRole('cell', { name: 'Em andamento', exact: true }).first().waitFor({ state: 'hidden' });
   check('Relatório integra a devolução e filtra o status', await page.locator('tbody tr').count() === 7);
   await navigate('conta', 'Minha conta');
   await page.locator('#senhaAtual').fill('123456'); await page.locator('#novaSenha').fill('654321'); await page.locator('#confirmaSenha').fill('654321');
