@@ -371,6 +371,7 @@ function logout(expired = false) {
   if (dialog.open) dialog.close();
   root.replaceChildren();
   location.hash = '#/entrar';
+  committedHash = location.hash;
   authScreen();
   toast(expired ? 'Sua sessão terminou. Entre novamente para continuar.' : 'Você saiu da sua conta. Até a próxima pedalada!');
 }
@@ -391,6 +392,7 @@ document.addEventListener('keydown', event => {
 window.addEventListener('session-expired', () => logout(true));
 window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
 window.addEventListener('hashchange', () => {
+  if (location.hash === committedHash) { allowNavigation = false; return; }
   if (root.querySelector('[data-busy]') || dialog.querySelector('[data-busy]')) {
     history.replaceState(null, '', committedHash || '#/inicio');
     toast('Aguarde a confirmação da operação antes de sair.'); return;

@@ -124,7 +124,11 @@ try {
   await page.locator('#confirmaSenha').fill('654321');
   await page.getByRole('button', { name: 'Salvar nova senha', exact: true }).click();
   await page.getByRole('status').filter({ hasText: 'Senha alterada' }).waitFor();
-  await logout(); await login(email, '654321');
+  await logout();
+  await page.locator('#username').fill(email);
+  await page.evaluate(() => window.dispatchEvent(new HashChangeEvent('hashchange')));
+  check('Evento de navegação atrasado não interrompe o próximo login', await page.locator('dialog').evaluate(el => !el.open));
+  await login(email, '654321');
   check('Senha alterada autentica no próximo acesso');
   await page.reload(); await heading('Bom ter você por aqui.').waitFor();
   check('Recarregar exige login e não persiste token', await page.evaluate(() => localStorage.length === 0 && sessionStorage.length === 0));

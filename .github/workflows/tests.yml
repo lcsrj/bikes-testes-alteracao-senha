@@ -30,7 +30,7 @@ jobs:
       - name: Verificar formatação de dados e proteção de conteúdo
         run: npm test
       - name: Instalar navegador de testes
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --only-shell chromium
       - name: Testar fluxos completos da interface
         run: npm run test:e2e
       - name: Salvar relatórios de testes
