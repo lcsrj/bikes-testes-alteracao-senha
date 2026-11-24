@@ -1,15 +1,14 @@
 /* Tela de entrada e cadastro.
    --px: 1 pixel da referência visual (1585 x 992) no painel de autenticação.
    --hs: 1 pixel da foto de referência (872 x 992) no painel de identidade; texto e foto usam a mesma escala. */
-@font-face{font-family:'Archivo Black';src:url('./fonts/archivo-black.ttf') format('truetype');font-weight:400;font-display:swap}
 
 .auth-layout{
   --px:clamp(.72px,min(.1008vh,.0631vw),1.2px);
   --hs:max(.06307vw,.1008vh);
   --forest:#0c4625;--forest-hover:#0a3a1f;--forest-press:#082f19;
-  --lime:#94c623;--night:#142521;
+  --lime:var(--brand-lime);--night:#142521;
   --panel:#dfe3e3;--card:#edefef;--info:#e0e7db;--field:#e9edec;--field-line:#b9c0bf;
-  --text:#102522;--text-soft:#65716f;--snow:#f4f5f5;--logo-green:#2f7d32;
+  --text:var(--brand-ink);--text-soft:#65716f;--snow:var(--brand-snow);
   --ease:cubic-bezier(.2,.6,.3,1);
   display:grid;grid-template-columns:55fr 45fr;min-height:100vh;min-height:100dvh;background:var(--panel);color:var(--text)
 }
@@ -25,15 +24,6 @@
 .auth-hero h1 em{font-style:normal;color:var(--lime)}
 .auth-hero-copy p{position:relative;margin:calc(28 * var(--hs)) 0 0;padding-left:calc(56 * var(--hs));color:var(--snow);font-size:calc(26.5 * var(--hs));font-weight:600;line-height:1.2;letter-spacing:-.005em}
 .auth-hero-copy p::before{content:'';position:absolute;left:calc(10 * var(--hs));top:calc(4 * var(--hs));bottom:calc(2 * var(--hs));width:calc(9 * var(--hs));background:var(--lime);transform:skewX(-27deg)}
-
-/* Logotipo: símbolo em SVG e nome em tipografia esportiva inclinada */
-.logo{--ls:var(--px);display:inline-flex;align-items:center;gap:calc(9 * var(--ls));line-height:1}
-.logo-light{--ls:var(--hs)}
-.logo-mark{display:block;width:calc(92 * var(--ls));height:calc(34 * var(--ls));fill:var(--lime)}
-.logo-word{display:block;font-family:'Archivo Black',var(--font);font-synthesis:none;font-size:calc(41 * var(--ls));letter-spacing:.005em;transform:skewX(-12deg) scaleX(1.14);transform-origin:0 50%;margin-top:calc(1 * var(--ls))}
-.logo-dark{gap:calc(6 * var(--ls))}
-.logo-dark .logo-mark{width:calc(68 * var(--ls));height:calc(25 * var(--ls));fill:var(--logo-green)}
-.logo-dark .logo-word{font-size:calc(33 * var(--ls));color:var(--text);transform:skewX(-12deg)}
 
 /* Painel direito */
 .auth-main{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(14 * var(--px));min-width:0;padding:calc(36 * var(--px)) calc(40 * var(--px));background:var(--panel) url('./login/topo.svg') no-repeat right -40px top -10px;background-size:min(520px,70%) auto}
@@ -123,8 +113,8 @@
   .auth-hero-photo{inset:auto;top:calc(-40 * var(--hs));left:0;height:calc(992 * var(--hs));object-position:50% 50%}
   .auth-logo{top:max(16px,calc(7 * var(--hs)));left:max(18px,calc(81 * var(--hs)))}
   .auth-hero-copy{top:calc(110 * var(--hs));left:max(16px,calc(78 * var(--hs)))}
-  .logo-light .logo-mark{width:max(50px,calc(92 * var(--hs)));height:max(18px,calc(34 * var(--hs)))}
-  .logo-light .logo-word{font-size:max(22px,calc(41 * var(--hs)))}
+  .auth-layout .logo-light .logo-mark{width:max(50px,calc(92 * var(--hs)));height:max(18px,calc(34 * var(--hs)))}
+  .auth-layout .logo-light .logo-word{font-size:max(22px,calc(41 * var(--hs)))}
   .auth-hero-copy p{font-size:max(13px,calc(26.5 * var(--hs)));margin-top:calc(22 * var(--hs))}
   .auth-main{justify-content:flex-start;padding:32px 24px 28px;background-size:min(420px,80%) auto}
   .auth-docs{margin-top:4px}

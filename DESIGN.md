@@ -19,6 +19,10 @@ colors:
   focus: "#58a978"
   focus-field: "#16734e29"
   brand-accent: "#a5d7b5"
+  brand-lime: "#94c623"
+  brand-snow: "#f4f5f5"
+  brand-ink: "#102522"
+  brand-green: "#2f7d32"
   navigation-text: "#c1dacd"
   navigation-hover: "#ffffff13"
   navigation-active: "#d5efdf1f"
@@ -44,6 +48,10 @@ colors:
   scrollbar-thumb: "#a4b9ad"
   scrollbar-track: "#f3f6f4"
 typography:
+  brand-word:
+    fontFamily: "'Archivo Black', Manrope, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    lineHeight: 1
+    letterSpacing: ".005em"
   sans:
     fontFamily: "Manrope, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
     fontSize: "14px"
@@ -179,7 +187,7 @@ components:
 
 O painel segue o conceito visual aprovado: menu lateral verde floresta, área de trabalho clara, indicadores discretos e bicicleta urbana como imagem de apoio. A referência é uma locadora de bairro organizada, com navegação familiar e linguagem direta. A expressão fica na marca, no verde e na imagem; tabelas e formulários priorizam a leitura.
 
-O produto usa português brasileiro, reais e CPF porque esses formatos fazem parte do domínio do projeto. A interface é de operação, com uma tela de acesso mais expressiva. Não usa gráficos decorativos, indicadores fictícios nem publicidade. Os tokens implementados em `src/main/resources/static/assets/styles.css` são a fonte de execução; este documento registra as decisões e deve ser atualizado junto com eles.
+O produto usa português brasileiro, reais e CPF porque esses formatos fazem parte do domínio do projeto. A interface é de operação, com uma tela de acesso mais expressiva. Não usa gráficos decorativos, indicadores fictícios nem publicidade. Os tokens operacionais implementados em `src/main/resources/static/assets/styles.css` e a identidade compartilhada em `src/main/resources/static/assets/brand.css` são as fontes de execução; este documento registra as decisões e deve ser atualizado junto com eles. A marca interna reutiliza a identidade já aprovada no acesso, sem criar uma nova linguagem visual.
 
 ## Colors
 
@@ -189,7 +197,8 @@ Verdes profundos sustentam a marca; superfícies claras mantêm a leitura das op
 
 - **Verde de ação:** `primary` nas ações e links; `primary-hover` na resposta ao apontador.
 - **Verde floresta:** `forest` no menu, na área narrativa de acesso e nas notificações; `forest-deep` participa da sombra do menu móvel.
-- **Menta:** `mint` em avatares, ícones de indicadores e respostas de ações secundárias; `brand-accent` no símbolo da marca e no marcador de navegação.
+- **Menta:** `mint` em avatares, ícones de indicadores e respostas de ações secundárias; `brand-accent` no marcador de navegação e em elementos de apoio do menu.
+- **Identidade compartilhada:** `brand-lime` no símbolo e `brand-snow` na palavra BIKES da variante clara; `brand-green` no símbolo e `brand-ink` na palavra da variante escura. Os quatro valores vêm das variáveis `--brand-*` de `:root` em `assets/brand.css`. Em `assets/login.css`, os aliases locais `--lime`, `--snow` e `--text` reutilizam, respectivamente, `--brand-lime`, `--brand-snow` e `--brand-ink`. As cores operacionais continuam próprias de `assets/styles.css`.
 
 ### Secondary
 
@@ -209,7 +218,7 @@ O foco usa contorno verde de 3px; campos usam a versão translúcida `focus-fiel
 
 ## Typography
 
-Manrope variável, armazenada localmente com licença OFL, atende títulos, corpo e controles. O fallback de sistema preserva a leitura sem fonte carregada. Não há fonte de exibição separada.
+Manrope variável, armazenada localmente com licença OFL, atende títulos operacionais, corpo e controles. O fallback de sistema preserva a leitura sem fonte carregada. A palavra BIKES usa Archivo Black local, declarada em `assets/brand.css` a partir de `assets/fonts/archivo-black.ttf`, com fallback `var(--font)` e síntese de fonte desativada. A chamada expressiva do acesso também usa Archivo Black, conforme `assets/login.css`; isso não altera a tipografia dos controles ou do painel.
 
 - **Display:** chamada da tela de acesso; o tamanho cai para 58px e 48px nos intervalos intermediários e a chamada é ocultada no celular.
 - **Headline:** título de página; passa a 27px no celular, mantendo peso 800.
@@ -266,6 +275,12 @@ Badges compactos combinam nome do estado e ponto da mesma cor, com padding de 4p
 
 A navegação selecionada combina destaque lateral, fundo e `aria-current`. Tabelas usam cabeçalhos semânticos e região de rolagem acessível. Carregamento mostra indicador e texto; ausência de dados explica o próximo passo; falhas permitem nova tentativa.
 
+### Marca
+
+`logo('light'|'dark')`, em `src/main/resources/static/assets/app.js`, é o construtor canônico: combina o mesmo `logoMark` SVG vetorial em linha com a palavra BIKES em Archivo Black. O símbolo geométrico conserva seus três paths e `viewBox="4 4 92 34"`; não é o ícone de bicicleta dos controles nem uma imagem raster. `src/main/resources/static/assets/brand.css`, carregado por `src/main/resources/static/index.html` antes dos estilos operacionais e do acesso, concentra fonte, cores, proporções e variantes.
+
+A variante clara usa símbolo de 92 × 34 unidades e palavra de 41 unidades, inclinada em −12° e expandida horizontalmente em 1,14. Na lateral, a unidade de escala é `--hs: .58px`, reduzida a `.52px` até 1200px. A variante escura usa símbolo de 68 × 25 unidades, palavra de 33 unidades e a mesma inclinação, sem expansão horizontal. Até 760px, ela aparece no cabeçalho claro com `--ls: .5px`, mantendo o link de visão geral e seu nome acessível. O erro de inicialização também usa a variante escura. No acesso e cadastro, os mesmos construtores conservam as escalas responsivas existentes de `assets/login.css`.
+
 ### Dialogs / Feedback
 
 Selects e seletores de data são nativos: o navegador controla o popup e a interação de teclado. O horário informado é sempre o da locadora, identificado no campo. Diálogos usam o elemento nativo `dialog` com nome acessível, Escape, contenção de foco e retorno ao acionador. Notificações usam uma região de status no fluxo do layout, abaixo do cabeçalho ou acima do formulário de acesso, sem cobrir ações. Alterações não salvas exigem confirmação antes de sair.
@@ -277,6 +292,7 @@ Botões transitam fundo e borda em 150ms; o menu móvel desliza em 180ms. O indi
 ### Do:
 
 - **Do** usar os componentes e tokens compartilhados e manter os mesmos nomes para as mesmas ações.
+- **Do** reutilizar `logo('light'|'dark')` e `assets/brand.css` em novos pontos de identidade, preservando símbolo, palavra, proporções e contraste da variante.
 - **Do** explicar erros preservando o formulário e apresentar o estado por texto além da cor.
 - **Do** manter notificações no fluxo e tabelas largas em sua própria região de rolagem.
 - **Do** associar informações financeiras e pessoais às permissões reais do servidor.

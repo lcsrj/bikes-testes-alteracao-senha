@@ -6,6 +6,7 @@ O contrato do domínio está no README e na API. As permissões continuam sendo 
 
 | Capability | Canonical owner | Source of truth | Allowed variants | Verification |
 | --- | --- | --- | --- | --- |
+| Marca | `app.js`: `logo`, `logoMark`; `assets/brand.css`, carregado por `index.html` | DESIGN.md e `:root` de `brand.css` | `light` na lateral e no painel de identidade do acesso; `dark` no cabeçalho móvel, cartão de acesso e erro inicial | Verificação visual em computador e celular |
 | Select/Listbox | `ui.js`, `app.js`, select nativo | Este contrato e DESIGN.md | Filtros, paginação e situação; popup do navegador | `tests/browser.mjs` |
 | Date | `ui.js`: `date`, `localNow`, `zonedInstant`; datetime-local nativo | API e este contrato | Formatação brasileira e entrada no fuso do servidor | `tests/ui.test.mjs`, `tests/browser.mjs` |
 | Form | `ui.js`: `field`, `password`, `showError`; `app.js`: `attachForms` | Este contrato | Cadastro, login, locação, senha e manutenção | `tests/browser.mjs` |
@@ -14,6 +15,8 @@ O contrato do domínio está no README e na API. As permissões continuam sendo 
 | CRUD | `api.js` e roteamento de `app.js` | API e este contrato | Criar e consultar; situação, senha, devolução e exclusão de bicicletas | `tests/browser.mjs` |
 
 ## Sessão e rotas
+
+A identidade usa o mesmo `logo('light'|'dark')` em acesso, cadastro, área autenticada e erro de inicialização. O construtor mantém o SVG vetorial existente e a palavra BIKES em Archivo Black, com estilos e quatro cores `--brand-*` compartilhados em `assets/brand.css`. A lateral usa a variante clara com escala `.58px` (`.52px` até 1200px); o cabeçalho móvel usa a escura com escala `.5px` até 760px. Os links da marca autenticada levam a `#/inicio` e têm nome acessível “Bikes, visão geral”. A composição e as escalas do acesso permanecem as de `assets/login.css`; seus aliases de cor reutilizam os tokens compartilhados. Controles, Manrope e cores operacionais mantêm o contrato existente.
 
 O JWT fica somente em memória. Recarregar ou fechar a página exige novo login. Nenhuma senha, token ou cartão é salvo no armazenamento do navegador. O servidor informa o usuário atual em `/api/v1/auth/me` e a tarifa/fuso em `/api/v1/configuracao`.
 

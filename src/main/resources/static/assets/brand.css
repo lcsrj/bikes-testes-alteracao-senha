@@ -1,0 +1,21 @@
+@font-face{font-family:'Archivo Black';src:url('./fonts/archivo-black.ttf') format('truetype');font-weight:400;font-display:swap}
+
+:root{--brand-lime:#94c623;--brand-snow:#f4f5f5;--brand-ink:#102522;--brand-green:#2f7d32}
+.logo{--ls:var(--px,1px);display:inline-flex;align-items:center;gap:calc(9 * var(--ls));line-height:1}
+.logo-light{--ls:var(--hs,1px);color:var(--brand-snow)}
+.logo-mark{display:block;width:calc(92 * var(--ls));height:calc(34 * var(--ls));fill:var(--brand-lime)}
+.logo-word{display:block;font-family:'Archivo Black',var(--font);font-synthesis:none;font-size:calc(41 * var(--ls));letter-spacing:.005em;transform:skewX(-12deg) scaleX(1.14);transform-origin:0 50%;margin-top:calc(1 * var(--ls))}
+.logo-dark{gap:calc(6 * var(--ls))}
+.logo-dark .logo-mark{width:calc(68 * var(--ls));height:calc(25 * var(--ls));fill:var(--brand-green)}
+.logo-dark .logo-word{font-size:calc(33 * var(--ls));color:var(--brand-ink);transform:skewX(-12deg)}
+
+.sidebar .logo{--hs:.58px}
+.mobile-brand{display:none}
+@media(max-width:1200px){.sidebar .logo{--hs:.52px}}
+@media(max-width:760px){
+  .mobile-brand{display:inline-flex;text-decoration:none}
+  .mobile-brand:hover{text-decoration:none}
+  .mobile-brand .logo{--ls:.5px}
+  .topbar .topbar-context{display:flex;flex-direction:column;align-items:flex-start;gap:3px;line-height:1.2}
+  .topbar-context>span{font-size:9px}
+}
