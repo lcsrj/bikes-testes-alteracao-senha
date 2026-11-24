@@ -281,3 +281,7 @@ Botões transitam fundo e borda em 150ms; o menu móvel desliza em 180ms. O indi
 - **Don't** inventar controles para operações ausentes na API, indicadores fictícios ou gráficos decorativos.
 - **Don't** usar a imagem ilustrativa como evidência de estoque ou modelo disponível.
 - **Don't** cobrir ações com notificações ou aplicar sombra aos painéis operacionais.
+
+## Demonstração para apresentação
+
+A versão de GitHub Pages preserva o mesmo sistema visual. O acesso rápido usa botões canônicos primário e secundário em uma superfície menta, com identificação textual de dados fictícios. Cabeçalho e rodapé continuam identificando a demonstração durante o uso. Os exemplos preenchem indicadores e tabelas a partir da base local; os valores acompanham as ações realizadas. No celular, o cabeçalho de acesso ocupa apenas a altura da marca.

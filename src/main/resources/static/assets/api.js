@@ -1,3 +1,4 @@
+import { DEMO } from './runtime.js';
 let token = null;
 
 export class ApiError extends Error {
@@ -12,6 +13,18 @@ export function setToken(value) { token = value; }
 export function hasToken() { return Boolean(token); }
 
 export async function api(path, { method = 'GET', body, signal } = {}) {
+  if (DEMO) {
+    try {
+      const { demoApi } = await import('./demo.js');
+      return await demoApi(path, { method, body, token });
+    } catch (error) {
+      if (error.status === 401 && token) {
+        token = null;
+        window.dispatchEvent(new Event('session-expired'));
+      }
+      throw new ApiError(error.message, error.status, error.fields);
+    }
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
   try {

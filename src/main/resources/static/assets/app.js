@@ -1,3 +1,4 @@
+import { DEMO, REPOSITORY_URL } from './runtime.js';
 import { api, ApiError, setToken, hasToken } from './api.js';
 import { escape as e, money, cpf, badge, date, duration, icon, field, password, errorArea, showError, toast, mountToast, empty, table, pager, localNow, zonedInstant } from './ui.js';
 
@@ -21,6 +22,12 @@ const getRoute = () => {
   return { path: path || 'inicio', query: new URLSearchParams(query) };
 };
 
+function closeDialog() {
+  dialog.close();
+  dialog.replaceChildren();
+}
+dialog.addEventListener('close', () => { if (!dialog.open) dialog.replaceChildren(); });
+
 function openDialog(content, focus = 'button') {
   dialog.innerHTML = `<div class="dialog-inner">${button('close-dialog', `${icon('close')}<span class="sr-only">Fechar</span>`, '', 'icon-button dialog-close')}${content}</div>`;
   dialog.showModal();
@@ -35,7 +42,7 @@ function shell() {
   const navigation = [ ['inicio', 'home', 'Visão geral'], ...(isAdmin()
     ? [['frota', 'bike', 'Bicicletas'], ['clientes', 'users', 'Clientes'], ['usuarios', 'account', 'Usuários'], ['relatorios', 'chart', 'Locações e relatórios']]
     : [['locacoes', 'key', 'Minhas locações'], ['nova-locacao', 'bike', 'Alugar bicicleta'], ['perfil', 'account', 'Meus dados']]), ['conta', 'account', 'Minha conta'] ];
-  root.innerHTML = `<div class="app-shell"><aside class="sidebar" id="navigation"><a class="brand" href="#/inicio" aria-label="Bikes, visão geral">${icon('bike')}<span>bikes<span class="brand-dot">.</span></span></a><span class="sidebar-label">${isAdmin() ? 'ADMINISTRAÇÃO' : 'VAMOS PEDALAR'}</span><nav aria-label="Menu principal">${navigation.map(([path, symbol, label]) => `<a href="#/${path}" data-route="${path}">${icon(symbol)}<span>${label}</span></a>`).join('')}</nav><div class="sidebar-bottom"><div class="sidebar-note">${icon('bike')}<p>Uma bike.<br>Novos caminhos.</p></div><a class="docs-link" href="/docs-bikes.html" target="_blank" rel="noopener">Documentação da API ↗</a></div></aside><div class="workspace"><header class="topbar"><button class="icon-button mobile-menu" data-action="menu" aria-expanded="false" aria-controls="navigation" aria-label="Abrir menu">${icon('menu')}</button><span class="topbar-context">Locadora de bicicletas</span><div class="account-menu"><div class="avatar" aria-hidden="true">${e(account.username[0].toUpperCase())}</div><div><strong>${e(account.username)}</strong><span>${isAdmin() ? 'Administrador' : 'Cliente'}</span></div><button class="icon-button" data-action="logout" aria-label="Sair da conta" title="Sair da conta">${icon('out')}</button></div></header><main id="main" class="main" tabindex="-1"></main><footer class="footer">bikes · ${isAdmin() ? 'Gestão da locadora' : 'Seu próximo caminho começa aqui'}<span>Horários: ${e(config.timezone)}</span></footer></div></div>`;
+  root.innerHTML = `<div class="app-shell"><aside class="sidebar" id="navigation"><a class="brand" href="#/inicio" aria-label="Bikes, visão geral">${icon('bike')}<span>bikes<span class="brand-dot">.</span></span></a><span class="sidebar-label">${isAdmin() ? 'ADMINISTRAÇÃO' : 'VAMOS PEDALAR'}</span><nav aria-label="Menu principal">${navigation.map(([path, symbol, label]) => `<a href="#/${path}" data-route="${path}">${icon(symbol)}<span>${label}</span></a>`).join('')}</nav><div class="sidebar-bottom"><div class="sidebar-note">${icon('bike')}<p>Uma bike.<br>Novos caminhos.</p></div><a class="docs-link" href="${DEMO ? REPOSITORY_URL + '#readme' : './docs-bikes.html'}" target="_blank" rel="noopener">${DEMO ? 'Sobre o projeto ↗' : 'Documentação da API ↗'}</a></div></aside><div class="workspace"><header class="topbar"><button class="icon-button mobile-menu" data-action="menu" aria-expanded="false" aria-controls="navigation" aria-label="Abrir menu">${icon('menu')}</button><span class="topbar-context">${DEMO ? 'Bikes · demonstração' : 'Locadora de bicicletas'}</span><div class="account-menu"><div class="avatar" aria-hidden="true">${e(account.username[0].toUpperCase())}</div><div><strong>${e(account.username)}</strong><span>${isAdmin() ? 'Administrador' : 'Cliente'}</span></div><button class="icon-button" data-action="logout" aria-label="Sair da conta" title="Sair da conta">${icon('out')}</button></div></header><main id="main" class="main" tabindex="-1"></main><footer class="footer">bikes · ${isAdmin() ? 'Gestão da locadora' : 'Seu próximo caminho começa aqui'}<span>${DEMO ? 'Dados fictícios · salvos neste navegador · ' : ''}Horários: ${e(config.timezone)}</span></footer></div></div>`;
   syncMenu();
   mountToast();
 }
@@ -45,9 +52,13 @@ function syncMenu() {
   if (sidebar) sidebar.inert = matchMedia('(max-width: 760px)').matches && !sidebar.classList.contains('open');
 }
 
+function demoAccess() {
+  return `<section class="demo-access" aria-label="Acessos de demonstração"><p>Explore com dados fictícios. As mudanças ficam neste navegador.</p><div class="demo-actions">${button('demo-login', 'Entrar como cliente', 'CLIENTE', 'primary full')}${button('demo-login', 'Entrar como administrador', 'ADMIN', 'secondary full')}</div><details><summary>Entrar manualmente</summary><p>Cliente: <strong>cliente@bikes.demo</strong><br>Admin: <strong>admin@bikes.demo</strong><br>Senha inicial dos exemplos: <strong>123456</strong></p></details></section>`;
+}
+
 function authScreen(register = false) {
   document.title = `${register ? 'Criar conta' : 'Entrar'} · Bikes`;
-  root.innerHTML = `<div class="auth-layout"><section class="auth-story"><a class="brand" href="#/entrar">${icon('bike')}<span>bikes<span class="brand-dot">.</span></span></a><div><h1>Mais leve.<br>Mais livre.<br>De bike.</h1><p>Alugue, acompanhe sua locação e aproveite o trajeto. Tudo em um só lugar.</p><div class="auth-photo"><img src="/assets/city-bike.png" alt="Bicicleta urbana verde com cesta" width="1536" height="1024"><small>Imagem ilustrativa</small></div></div><span class="story-footer">Menos pressa. Mais pedal.</span></section><main id="main" class="auth-main"><div class="auth-card"><h2>${register ? 'Vamos começar?' : 'Bom ter você por aqui.'}</h2><p>${register ? 'Crie sua conta. Depois, complete seus dados para alugar.' : 'Entre na sua conta e acompanhe tudo por aqui.'}</p><form novalidate id="${register ? 'signup' : 'login'}">${errorArea()}${field('username', 'E-mail', { attributes: 'type="email" autocomplete="username" maxlength="100" placeholder="voce@exemplo.com"' })}${password('password', 'Senha', register ? 'new-password' : 'current-password')}${register ? password('confirmacao', 'Confirmar senha', 'new-password') : ''}<button class="button primary full" type="submit">${register ? 'Criar minha conta' : 'Entrar na conta'}${icon('arrow')}</button></form><p class="auth-switch">${register ? 'Já tem uma conta? <a href="#/entrar">Entrar</a>' : 'Primeira vez aqui? <a href="#/cadastro">Criar conta</a>'}</p><p class="fine-print">Sua sessão termina ao recarregar ou fechar a página.</p><a class="muted-link" href="/docs-bikes.html">Consultar documentação da API ↗</a></div></main></div>`;
+  root.innerHTML = `<div class="auth-layout"><section class="auth-story"><a class="brand" href="#/entrar">${icon('bike')}<span>bikes<span class="brand-dot">.</span></span></a><div><h1>Mais leve.<br>Mais livre.<br>De bike.</h1><p>Alugue, acompanhe sua locação e aproveite o trajeto. Tudo em um só lugar.</p><div class="auth-photo"><img src="./assets/city-bike.png" alt="Bicicleta urbana verde com cesta" width="1536" height="1024"><small>Imagem ilustrativa</small></div></div><span class="story-footer">Menos pressa. Mais pedal.</span></section><main id="main" class="auth-main"><div class="auth-card"><h2>${register ? 'Vamos começar?' : 'Bom ter você por aqui.'}</h2><p>${register ? (DEMO ? 'Crie uma conta de demonstração com dados fictícios.' : 'Crie sua conta. Depois, complete seus dados para alugar.') : 'Entre na sua conta e acompanhe tudo por aqui.'}</p>${DEMO && !register ? demoAccess() : ''}<form novalidate id="${register ? 'signup' : 'login'}">${errorArea()}${field('username', 'E-mail', { attributes: 'type="email" autocomplete="username" maxlength="100" placeholder="voce@exemplo.com"' })}${password('password', 'Senha', register ? 'new-password' : 'current-password')}${register ? password('confirmacao', 'Confirmar senha', 'new-password') : ''}<button class="button primary full" type="submit">${register ? 'Criar minha conta' : 'Entrar na conta'}${icon('arrow')}</button></form><p class="auth-switch">${register ? 'Já tem uma conta? <a href="#/entrar">Entrar</a>' : 'Primeira vez aqui? <a href="#/cadastro">Criar conta</a>'}</p><p class="fine-print">Sua sessão termina ao recarregar ou fechar a página.</p>${DEMO ? button('demo-reset', 'Restaurar exemplos da demonstração', '', 'quiet full') : ''}<a class="muted-link" href="${DEMO ? REPOSITORY_URL + '#readme' : './docs-bikes.html'}">${DEMO ? 'Conhecer o projeto no GitHub ↗' : 'Consultar documentação da API ↗'}</a></div></main></div>`;
   attachForms();
   mountToast();
 }
@@ -125,7 +136,7 @@ async function overview() {
   const upcoming = [...active].sort((a, b) => a.dataDevolucaoPrevista.localeCompare(b.dataDevolucaoPrevista)).slice(0, 3);
   return title('Visão geral', isAdmin() ? 'Gerencie sua frota e acompanhe cada locação.' : `Seu próximo caminho começa aqui${profile ? `, ${e(profile.nome.split(' ')[0])}` : ''}.`, isAdmin() ? link('frota', 'Gerenciar bicicletas', 'primary', 'bike') : link('nova-locacao', 'Alugar bicicleta', 'primary', 'plus'))
     + (!isAdmin() && !profile ? `<div class="notice"><div><strong>Só falta completar seus dados.</strong><p>Cadastre seu nome e CPF para fazer sua primeira locação.</p></div>${link('perfil', 'Completar cadastro', 'secondary')}</div>` : '')
-    + stats(cards) + `<div class="dashboard-grid"><section class="panel"><div class="panel-heading"><div><h2>Locações recentes</h2><p>${isAdmin() ? 'As últimas movimentações da locadora.' : 'Seus últimos trajetos, em um só lugar.'}</p></div><a href="#/${isAdmin() ? 'relatorios' : 'locacoes'}">Ver todas ${icon('arrow')}</a></div>${recent.length ? table(['Locação', 'Bicicleta', 'Retirada', 'Status', 'Valor', '<span class="sr-only">Ações</span>'], rentalRows(recent, isAdmin()), 'Locações recentes') : empty('Nenhuma locação por aqui', isAdmin() ? 'As locações dos clientes aparecerão aqui.' : 'Que tal começar um novo trajeto?', !isAdmin() ? link('nova-locacao', 'Alugar minha primeira bike') : '')}<div class="panel-foot">${icon('clock')}Dados atualizados ao abrir esta página. ${button('retry', 'Atualizar')}</div></section><aside class="dashboard-aside"><section class="bike-feature"><div><h2>Vamos de bike?</h2><p>${isAdmin() ? 'Uma frota cuidada vai mais longe.' : `${money(config.valorHora)} por hora. Você escolhe o destino.`}</p></div><img src="/assets/city-bike.png" width="1536" height="1024" alt="Bicicleta urbana verde com cesta"><small>Imagem ilustrativa</small></section><section class="panel upcoming"><h2>Próximas devoluções</h2>${upcoming.length ? upcoming.map(r => button('rental-detail', `<span class="upcoming-icon">${icon('bike')}</span><span><strong>${e(r.codigoBicicleta)}</strong><small>${date(r.dataDevolucaoPrevista)}</small></span>${icon('arrow')}`, r.locacaoId || r.id, 'upcoming-row')).join('') : '<p class="muted">Nenhuma devolução pendente.</p>'}</section></aside></div>`;
+    + stats(cards) + `<div class="dashboard-grid"><section class="panel"><div class="panel-heading"><div><h2>Locações recentes</h2><p>${isAdmin() ? 'As últimas movimentações da locadora.' : 'Seus últimos trajetos, em um só lugar.'}</p></div><a href="#/${isAdmin() ? 'relatorios' : 'locacoes'}">Ver todas ${icon('arrow')}</a></div>${recent.length ? table(['Locação', 'Bicicleta', 'Retirada', 'Status', 'Valor', '<span class="sr-only">Ações</span>'], rentalRows(recent, isAdmin()), 'Locações recentes') : empty('Nenhuma locação por aqui', isAdmin() ? 'As locações dos clientes aparecerão aqui.' : 'Que tal começar um novo trajeto?', !isAdmin() ? link('nova-locacao', 'Alugar minha primeira bike') : '')}<div class="panel-foot">${icon('clock')}Dados atualizados ao abrir esta página. ${button('retry', 'Atualizar')}</div></section><aside class="dashboard-aside"><section class="bike-feature"><div><h2>Vamos de bike?</h2><p>${isAdmin() ? 'Uma frota cuidada vai mais longe.' : `${money(config.valorHora)} por hora. Você escolhe o destino.`}</p></div><img src="./assets/city-bike.png" width="1536" height="1024" alt="Bicicleta urbana verde com cesta"><small>Imagem ilustrativa</small></section><section class="panel upcoming"><h2>Próximas devoluções</h2>${upcoming.length ? upcoming.map(r => button('rental-detail', `<span class="upcoming-icon">${icon('bike')}</span><span><strong>${e(r.codigoBicicleta)}</strong><small>${date(r.dataDevolucaoPrevista)}</small></span>${icon('arrow')}`, r.locacaoId || r.id, 'upcoming-row')).join('') : '<p class="muted">Nenhuma devolução pendente.</p>'}</section></aside></div>`;
 }
 
 function filters(kind, statuses = []) {
@@ -166,16 +177,16 @@ async function people(kind) {
 }
 
 function profilePage() {
-  return title('Meus dados', profile ? 'Seu cadastro de cliente na locadora.' : 'Complete seu cadastro para começar a pedalar.') + `<section class="panel form-panel">${profile ? `<div class="section-heading"><h2>Cadastro de cliente</h2>${badge('CLIENTE')}</div>${clientDetails(profile)}<p class="page-note">Se precisar corrigir seus dados, entre em contato com a locadora.</p>` : `<h2>Quem vai pedalar?</h2><p>Seu cadastro fica associado à conta ${e(account.username)}.</p><form novalidate id="profile" class="form-grid">${errorArea()}${field('nome', 'Nome completo', { wide: true, attributes: 'autocomplete="name" minlength="2" maxlength="100"' })}${field('cpf', 'CPF', { attributes: 'inputmode="numeric" autocomplete="off" pattern="[0-9]{11}" maxlength="11"', hint: '11 números, sem pontos e traço.' })}${field('telefone', 'Telefone (opcional)', { optional: true, attributes: 'type="tel" autocomplete="tel" maxlength="20"' })}${field('email', 'E-mail de contato (opcional)', { optional: true, wide: true, attributes: 'type="email" autocomplete="email" maxlength="100"', value: account.username })}<div class="actions wide"><button class="button primary" type="submit">Concluir cadastro${icon('check')}</button></div></form>`}</section>`;
+  return title('Meus dados', profile ? 'Seu cadastro de cliente na locadora.' : 'Complete seu cadastro para começar a pedalar.') + `<section class="panel form-panel">${profile ? `<div class="section-heading"><h2>Cadastro de cliente</h2>${badge('CLIENTE')}</div>${clientDetails(profile)}<p class="page-note">Se precisar corrigir seus dados, entre em contato com a locadora.</p>` : `<h2>Quem vai pedalar?</h2><p>Seu cadastro fica associado à conta ${e(account.username)}.</p><form novalidate id="profile" class="form-grid">${errorArea()}${field('nome', 'Nome completo', { wide: true, attributes: 'autocomplete="name" minlength="2" maxlength="100"' })}${field('cpf', 'CPF', { attributes: 'inputmode="numeric" autocomplete="off" pattern="[0-9]{11}" maxlength="11"', hint: DEMO ? 'CPF de teste: 39053344705. Informe só os números.' : '11 números, sem pontos e traço.' })}${field('telefone', 'Telefone (opcional)', { optional: true, attributes: 'type="tel" autocomplete="tel" maxlength="20"' })}${field('email', 'E-mail de contato (opcional)', { optional: true, wide: true, attributes: 'type="email" autocomplete="email" maxlength="100"', value: account.username })}<div class="actions wide"><button class="button primary" type="submit">Concluir cadastro${icon('check')}</button></div></form>`}</section>`;
 }
 
 function rentalForm() {
   if (!profile) return title('Alugar bicicleta', 'Antes do primeiro trajeto, precisamos do seu cadastro.') + empty('Só falta completar seus dados', 'Cadastre seu nome e CPF. É rápido e você só precisa fazer uma vez.', link('perfil', 'Completar cadastro'));
-  return title('Alugar bicicleta', 'Escolha a previsão de devolução. A gente cuida do próximo passo.') + `<div class="rental-layout"><section class="panel form-panel"><form novalidate id="rental" class="form-grid">${errorArea()}<div class="wide section-heading"><h2>Seu trajeto</h2></div>${field('codigoBicicleta', 'Código da bicicleta (opcional)', { optional: true, attributes: 'maxlength="30" pattern="[A-Za-z0-9_-]{3,30}" autocapitalize="characters"', hint: 'O código está na bicicleta. Deixe em branco para receber uma disponível.' })}${field('dataDevolucaoPrevista', 'Previsão de devolução', { attributes: `type="datetime-local" min="${localNow(config.timezone, 1)}"`, value: localNow(config.timezone, 120), hint: `Horário da locadora: ${e(config.timezone)}.` })}<div class="wide section-heading separated"><div><h2>Dados do cartão</h2><p>Registro acadêmico: nenhum pagamento é processado. Use dados de teste.</p></div></div>${field('cartao.titular', 'Nome no cartão', { wide: true, attributes: 'autocomplete="off" minlength="2" maxlength="100"' })}${field('cartao.numero', 'Número do cartão', { wide: true, attributes: 'inputmode="numeric" autocomplete="off" pattern="[0-9]{13,19}" maxlength="19"', hint: 'Somente números. Para testar: 4111111111111111.' })}${field('cartao.mesValidade', 'Mês de validade', { attributes: 'type="number" min="1" max="12" inputmode="numeric" placeholder="MM"' })}${field('cartao.anoValidade', 'Ano de validade', { attributes: 'type="number" min="2000" max="9999" inputmode="numeric" placeholder="AAAA"' })}${field('cartao.cvv', 'Código de segurança', { attributes: 'type="password" inputmode="numeric" autocomplete="off" pattern="[0-9]{3,4}" minlength="3" maxlength="4"', hint: '3 ou 4 números. Não será armazenado.' })}<div class="actions wide"><button type="submit" class="button primary">Confirmar locação${icon('arrow')}</button><a class="button secondary" href="#/locacoes">Cancelar</a></div></form></section><aside class="rental-summary"><div class="bike-feature"><h2>Seu próximo trajeto</h2><img src="/assets/city-bike.png" alt="Bicicleta urbana verde com cesta" width="1536" height="1024"><small>Imagem ilustrativa</small></div><div class="panel"><p class="price-label">Valor da locação</p><p class="price">${money(config.valorHora)}<span>/ hora</span></p><p>Valor proporcional ao tempo de uso, com cobrança mínima de 1 minuto.</p><hr><p>O valor final é calculado na devolução. O sistema guarda apenas os quatro últimos números do cartão.</p></div></aside></div>`;
+  return title('Alugar bicicleta', 'Escolha a previsão de devolução. A gente cuida do próximo passo.') + `<div class="rental-layout"><section class="panel form-panel"><form novalidate id="rental" class="form-grid">${errorArea()}<div class="wide section-heading"><h2>Seu trajeto</h2></div>${field('codigoBicicleta', 'Código da bicicleta (opcional)', { optional: true, attributes: 'maxlength="30" pattern="[A-Za-z0-9_-]{3,30}" autocapitalize="characters"', hint: 'O código está na bicicleta. Deixe em branco para receber uma disponível.' })}${field('dataDevolucaoPrevista', 'Previsão de devolução', { attributes: `type="datetime-local" min="${localNow(config.timezone, 1)}"`, value: localNow(config.timezone, 120), hint: `Horário da locadora: ${e(config.timezone)}.` })}<div class="wide section-heading separated"><div><h2>Dados do cartão</h2><p>Registro acadêmico: nenhum pagamento é processado. Use dados de teste.</p></div></div>${field('cartao.titular', 'Nome no cartão', { wide: true, attributes: 'autocomplete="off" minlength="2" maxlength="100"' })}${field('cartao.numero', 'Número do cartão', { wide: true, attributes: 'inputmode="numeric" autocomplete="off" pattern="[0-9]{13,19}" maxlength="19"', hint: 'Somente números. Para testar: 4111111111111111.' })}${field('cartao.mesValidade', 'Mês de validade', { attributes: 'type="number" min="1" max="12" inputmode="numeric" placeholder="MM"' })}${field('cartao.anoValidade', 'Ano de validade', { attributes: 'type="number" min="2000" max="9999" inputmode="numeric" placeholder="AAAA"' })}${field('cartao.cvv', 'Código de segurança', { attributes: 'type="password" inputmode="numeric" autocomplete="off" pattern="[0-9]{3,4}" minlength="3" maxlength="4"', hint: '3 ou 4 números. Não será armazenado.' })}<div class="actions wide"><button type="submit" class="button primary">Confirmar locação${icon('arrow')}</button><a class="button secondary" href="#/locacoes">Cancelar</a></div></form></section><aside class="rental-summary"><div class="bike-feature"><h2>Seu próximo trajeto</h2><img src="./assets/city-bike.png" alt="Bicicleta urbana verde com cesta" width="1536" height="1024"><small>Imagem ilustrativa</small></div><div class="panel"><p class="price-label">Valor da locação</p><p class="price">${money(config.valorHora)}<span>/ hora</span></p><p>Valor proporcional ao tempo de uso, com cobrança mínima de 1 minuto.</p><hr><p>O valor final é calculado na devolução. O sistema guarda apenas os quatro últimos números do cartão.</p></div></aside></div>`;
 }
 
 function accountPage() {
-  return title('Minha conta', 'Seus dados de acesso e a segurança da sua conta.') + `<div class="account-grid"><section class="panel form-panel"><h2>Dados de acesso</h2><dl><div><dt>E-mail</dt><dd>${e(account.username)}</dd></div><div><dt>Perfil</dt><dd>${badge(account.role)}</dd></div><div><dt>Número da conta</dt><dd>#${account.id}</dd></div></dl><p class="page-note">Sua sessão fica apenas nesta página. Ao recarregar, entre novamente.</p></section><section class="panel form-panel"><h2>Alterar senha</h2><p>Informe a senha atual para confirmar a alteração.</p>${passwordForm(account.id)}</section></div>`;
+  return title('Minha conta', 'Seus dados de acesso e a segurança da sua conta.') + `<div class="account-grid"><section class="panel form-panel"><h2>Dados de acesso</h2><dl><div><dt>E-mail</dt><dd>${e(account.username)}</dd></div><div><dt>Perfil</dt><dd>${badge(account.role)}</dd></div><div><dt>Número da conta</dt><dd>#${account.id}</dd></div></dl><p class="page-note">Sua sessão fica apenas nesta página. Ao recarregar, entre novamente.</p>${DEMO ? button('demo-reset', 'Restaurar exemplos da demonstração', '', 'secondary') : ''}</section><section class="panel form-panel"><h2>Alterar senha</h2><p>Informe a senha atual para confirmar a alteração.</p>${passwordForm(account.id)}</section></div>`;
 }
 
 function passwordForm(id) {
@@ -266,6 +277,7 @@ function attachForms(scope = root) {
             dirty = false;
             location.hash = '#/inicio';
             await route();
+            toast('Você entrou na sua conta. Boa pedalada!');
           }
         } else if (form.id === 'profile') {
           await api('/clientes', { method: 'POST', body: { ...clean, telefone: clean.telefone || null, email: clean.email || null } });
@@ -284,25 +296,25 @@ function attachForms(scope = root) {
         } else if (form.id === 'return') {
           const item = await api(`/locacoes/${form.dataset.rental}/devolucao`, { method: 'POST', body: { manutencao: Boolean(values.manutencao) } });
           dirty = false;
-          dialog.close();
+          closeDialog();
           toast('Bicicleta devolvida. Confira seu comprovante.');
           await route();
           await rentalDetail(item.id);
         } else if (form.id === 'bike') {
           await api('/bicicletas', { method: 'POST', body: clean });
           dirty = false;
-          dialog.close(); toast('Bicicleta cadastrada. Pronta para o próximo trajeto!'); await route();
+          closeDialog(); toast('Bicicleta cadastrada. Pronta para o próximo trajeto!'); await route();
         } else if (form.id === 'bike-status') {
           await api(`/bicicletas/${encodeURIComponent(form.dataset.code)}/status`, { method: 'PATCH', body: clean });
           dirty = false;
-          dialog.close(); toast('Situação da bicicleta atualizada.'); await route();
+          closeDialog(); toast('Situação da bicicleta atualizada.'); await route();
         } else if (form.id === 'change-password') {
           if (values.novaSenha !== values.confirmaSenha) validation('A confirmação precisa ser igual à nova senha.', 'confirmaSenha');
           await api(`/usuarios/${form.dataset.user}`, { method: 'PATCH', body: values });
           dirty = false;
           form.reset();
           toast('Senha alterada com sucesso.');
-          if (dialog.open) dialog.close();
+          if (dialog.open) closeDialog();
         }
       } catch (error) { if (form.isConnected) showError(form, error); }
       finally { delete form.dataset.busy; submit.disabled = false; submit.innerHTML = original; form.removeAttribute('aria-busy'); }
@@ -353,12 +365,40 @@ document.addEventListener('click', async event => {
         form.insertAdjacentHTML('beforebegin', `<div class="notice compact discard-warning"><p>Fechar descarta os dados preenchidos neste formulário.</p>${button('discard-dialog', 'Descartar e fechar', '', 'secondary')}</div>`);
         dialog.querySelector('.discard-warning button').focus();
       }
-    } else dialog.close();
-  } else if (action === 'discard-dialog') { dirty = false; dialog.close(); }
-  else if (action === 'discard') { dirty = false; allowNavigation = true; const next = control.dataset.id; dialog.close(); if (next === 'logout') logout(); else { location.hash = next; if (next === committedHash) route(); } }
+    } else closeDialog();
+  } else if (action === 'discard-dialog') { dirty = false; closeDialog(); }
+  else if (action === 'discard') { dirty = false; allowNavigation = true; const next = control.dataset.id; closeDialog(); if (next === 'logout') logout(); else { location.hash = next; if (next === committedHash) route(); } }
   else if (action === 'logout') { if (dirty) confirmNavigation('logout'); else logout(); }
   else if (action === 'retry') route();
   else if (action === 'clear-filters') { location.hash = `#/${getRoute().path}`; }
+  else if (DEMO && action === 'demo-login') {
+    if (control.disabled) return;
+    const choices = [...document.querySelectorAll('[data-action="demo-login"]')];
+    choices.forEach(choice => { choice.disabled = true; });
+    try {
+      const result = await api('/demo/acesso', { method: 'POST', body: { role: control.dataset.id } });
+      setToken(result.accessToken);
+      account = await api('/auth/me');
+      dirty = false;
+      location.hash = '#/inicio';
+      await route();
+      toast('Perfil aberto. Explore a demonstração da locadora.');
+    } catch (error) {
+      const form = document.getElementById('login');
+      if (form) showError(form, error);
+    } finally { choices.forEach(choice => { choice.disabled = false; }); }
+  } else if (DEMO && action === 'demo-reset') {
+    openDialog(`<h2 id="dialog-title">Restaurar a demonstração?</h2><p>Os exemplos originais serão restaurados. Os cadastros e as alterações que você fez neste navegador serão removidos, e sua sessão será encerrada.</p>${errorArea()}<div class="actions">${button('close-dialog', 'Manter meus dados', '', 'secondary')}${button('confirm-demo-reset', 'Restaurar demonstração', '', 'primary')}</div>`);
+  } else if (DEMO && action === 'confirm-demo-reset') {
+    control.disabled = true;
+    try {
+      await api('/demo/reset', { method: 'POST' });
+      logout(); toast('Exemplos restaurados. Escolha um perfil para explorar.');
+    } catch (error) {
+      const output = dialog.querySelector('.form-error');
+      output.textContent = error.message; output.hidden = false; output.focus();
+    } finally { control.disabled = false; }
+  }
   else if (action === 'new-bike') newBike();
   else if (action === 'bike-detail') bikeDetail(control.dataset.id);
   else if (action === 'rental-detail') rentalDetail(control.dataset.id);
@@ -368,7 +408,7 @@ document.addEventListener('click', async event => {
 
 function logout(expired = false) {
   ++version; account = null; profile = null; currentData = []; setToken(null); dirty = false;
-  if (dialog.open) dialog.close();
+  if (dialog.open) closeDialog();
   root.replaceChildren();
   location.hash = '#/entrar';
   committedHash = location.hash;
@@ -408,5 +448,5 @@ window.addEventListener('hashchange', () => {
 
 try { config = await api('/configuracao'); await route(); }
 catch (error) {
-  root.innerHTML = `<main id="main" class="startup-error"><a class="brand" href="/">${icon('bike')}bikes.</a><h1>Não conseguimos conectar à locadora.</h1><p>${e(error.message)}</p><a class="button primary" href="/">Tentar novamente</a></main>`;
+  root.innerHTML = `<main id="main" class="startup-error"><a class="brand" href="./">${icon('bike')}bikes.</a><h1>Não conseguimos conectar à locadora.</h1><p>${e(error.message)}</p><a class="button primary" href="./">Tentar novamente</a></main>`;
 }

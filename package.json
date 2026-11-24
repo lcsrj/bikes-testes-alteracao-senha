@@ -3,8 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/ui.test.mjs",
-    "test:e2e": "node tests/browser.mjs"
+    "test": "node --test tests/ui.test.mjs tests/demo.test.mjs",
+    "build:pages": "node scripts/build-pages.mjs",
+    "test:demo": "node tests/demo-browser.mjs",
+    "test:e2e": "node tests/browser.mjs",
+    "preview:pages": "node scripts/preview-pages.mjs"
   },
   "devDependencies": {
     "playwright": "1.58.2"

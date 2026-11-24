@@ -6,9 +6,14 @@ Sistema web com API REST para gerenciamento de uma locadora de bicicletas. Permi
 
 O projeto final dá continuidade às atividades anteriores e implementa os requisitos **4, 5, 6, 7 e 8**, com autenticação JWT, controle de acesso, auditoria, validação e documentação OpenAPI 3.1 / Swagger 3.
 
+**Demonstração online:** [abrir a Bikes no navegador](https://lcsrj.github.io/bikes-testes-alteracao-senha/).
+
+Para apresentar o projeto, basta abrir o link e escolher **Entrar como cliente** ou **Entrar como administrador**. A demonstração funciona sem instalar Java, MySQL ou qualquer programa.
+
 ## Sumário
 
 - [Visão geral](#visão-geral)
+- [Demonstração no GitHub Pages](#demonstração-no-github-pages)
 - [Interface web](#interface-web)
 - [Requisitos e atividades](#requisitos-e-atividades)
 - [Tecnologias](#tecnologias)
@@ -60,9 +65,58 @@ A frota é cadastrada por ADMIN. Quando uma locação é confirmada, a bicicleta
 | Swagger UI | [http://localhost:8080/docs-bikes.html](http://localhost:8080/docs-bikes.html) |
 | OpenAPI JSON | [http://localhost:8080/docs-bikes](http://localhost:8080/docs-bikes) |
 
+## Demonstração no GitHub Pages
+
+Acesse [https://lcsrj.github.io/bikes-testes-alteracao-senha/](https://lcsrj.github.io/bikes-testes-alteracao-senha/). Essa é a versão visual e interativa para apresentar o trabalho.
+
+Os botões **Entrar como cliente** e **Entrar como administrador** abrem os dois perfis sem precisar preencher credenciais. A base inicial contém oito bicicletas, três clientes, quatro contas e oito locações, com exemplos em andamento, finalizados e em manutenção.
+
+É possível cadastrar contas e clientes de teste, alugar uma bicicleta, devolvê-la, consultar o comprovante, acompanhar os relatórios, alterar senhas e administrar a frota. As telas compartilham a mesma base no navegador: uma devolução feita pelo cliente aparece também no painel administrativo.
+
+### Dados e acesso
+
+Use dados fictícios. As alterações ficam no armazenamento local do navegador e continuam disponíveis depois de recarregar a página. Elas não são enviadas para um servidor nem compartilhadas com outros visitantes. A sessão é encerrada ao recarregar; basta escolher o perfil novamente.
+
+A opção **Restaurar exemplos da demonstração**, disponível no acesso e em Minha conta, permite recomeçar. Ela pede confirmação, restaura a base inicial e remove somente os dados desta demonstração naquele navegador.
+
+Para testar o login manual, as contas iniciais são `cliente@bikes.demo` e `admin@bikes.demo`, ambas com senha inicial `123456`. A troca de senha funciona para o login manual. Os botões de acesso rápido continuam abrindo os perfis de exemplo.
+
+A demonstração simula autenticação e regras de negócio no navegador. Não é um serviço de locação real e não processa pagamentos. O código da API Java mantém a implementação com autenticação, banco, validação, auditoria e controle de acesso para execução separada.
+
+### Publicação e organização
+
+| Arquivo | Responsabilidade |
+| --- | --- |
+| `assets/runtime.js` | Define o modo de execução; a fonte usa a API Java |
+| `assets/demo.js` | Dados fictícios, armazenamento local e operações da demonstração |
+| `scripts/build-pages.mjs` | Copia a interface para `dist/` e ativa o modo de demonstração somente nessa cópia |
+| `.github/workflows/pages.yml` | Testa e publica a demonstração no GitHub Pages |
+| `tests/demo.test.mjs` | Regras, permissões simuladas, persistência, cartão e devolução |
+| `tests/demo-browser.mjs` | Percorre os fluxos completos em computador e celular, sem chamadas à API |
+
+Os caminhos `assets/` são relativos a `src/main/resources/static/`. A interface mantém caminhos relativos e navegação por hash para funcionar no subdiretório do repositório. O pacote publicado contém apenas a interface, seus recursos e a simulação; não inclui o servidor Java ou configurações do banco.
+
+Para preparar a mesma versão localmente, use Node.js 22 ou superior:
+
+```powershell
+npm ci
+npm run build:pages
+npm run preview:pages
+```
+
+O endereço local é exibido no terminal. Para verificar a demonstração:
+
+```powershell
+npm test
+npx playwright install chromium
+npm run test:demo
+```
+
+Os relatórios e as capturas ficam em `target/demo-e2e/`. O teste serve a versão publicada no mesmo subdiretório usado pelo GitHub Pages e verifica que nenhuma operação depende de `/api/v1`.
+
 ## Interface web
 
-A aplicação inclui interface de cliente e painel administrativo, servidos pelo próprio Spring Boot. Depois de iniciar o projeto, abra [http://localhost:8080](http://localhost:8080). Não é necessário iniciar outro servidor nem instalar Node.js para utilizar o sistema.
+Além da demonstração online, a aplicação inclui interface de cliente e painel administrativo conectados à API e servidos pelo próprio Spring Boot. Depois de iniciar o projeto, abra [http://localhost:8080](http://localhost:8080). Não é necessário iniciar outro servidor nem instalar Node.js para utilizar o sistema.
 
 ### Telas e funcionalidades
 
@@ -362,7 +416,7 @@ Não há criação de sessão HTTP. HTTP Basic continua disponível para compati
 
 ### Criar uma conta administrativa
 
-Não existe conta ADMIN padrão na aplicação. Primeiro cadastre a conta pela API, por exemplo:
+Não existe conta ADMIN padrão na aplicação Java. As contas de exemplo do GitHub Pages pertencem somente à demonstração no navegador. Primeiro cadastre a conta pela API, por exemplo:
 
 ```http
 POST /api/v1/usuarios
@@ -956,7 +1010,7 @@ npm run test:e2e
 
 Execute `clean verify` antes de `test:e2e`, pois o teste utiliza o JAR compilado. O teste de navegador inicia uma instância separada da aplicação com H2 descartável e encerra seus processos ao terminar. Não usa nem altera o MySQL da aplicação.
 
-Os testes unitários verificam escape de conteúdo, formatação brasileira e conversão de fuso. O navegador percorre cadastro, locação, devolução, manutenção, senha, relatórios e navegação móvel, além de conflitos, falhas de consulta e expiração de sessão. Relatórios e capturas ficam em `target/ui-e2e/`. As respostas de falha 401/403/503 são interceptadas apenas nos cenários específicos; os fluxos principais usam a API real.
+Os testes unitários verificam escape de conteúdo, formatação brasileira, conversão de fuso e as regras da demonstração local. O navegador percorre cadastro, locação, devolução, manutenção, senha, relatórios e navegação móvel, além de conflitos, falhas de consulta e expiração de sessão. Relatórios e capturas ficam em `target/ui-e2e/`. As respostas de falha 401/403/503 são interceptadas apenas nos cenários específicos; os fluxos principais usam a API real.
 
 ### Dados de teste
 
@@ -1000,7 +1054,9 @@ O workflow [tests.yml](.github/workflows/tests.yml) executa em:
 - Pull requests.
 - Execução manual pelo GitHub Actions.
 
-A pipeline prepara Java 25 e Node.js 22, executa `clean verify`, os testes unitários da interface e os fluxos com Chromium. Os relatórios da API e as capturas do navegador ficam no artefato `relatorios-testes`, inclusive quando uma etapa de teste falha.
+O workflow de testes prepara Java 25 e Node.js 22, executa `clean verify`, os testes unitários da interface e os fluxos com Chromium. Os relatórios da API e as capturas do navegador ficam no artefato `relatorios-testes`, inclusive quando uma etapa de teste falha.
+
+O workflow `pages.yml` prepara e testa a versão estática e a publica no GitHub Pages após alterações na interface.
 
 As execuções podem ser acompanhadas na aba [Actions](https://github.com/lcsrj/bikes-testes-alteracao-senha/actions).
 

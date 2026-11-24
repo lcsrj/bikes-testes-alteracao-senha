@@ -36,3 +36,11 @@ Cada consulta possui carregamento, lista vazia e falha recuperável. A navegaç�
 ## Limites
 
 Não há edição de nome/CPF, mudança de perfil de acesso, exclusão, cancelamento, cobrança real ou recuperação de senha por e-mail. A interface expõe os recursos existentes sem simular ações concluídas. A troca de senha segue o contrato atual da API e não revoga automaticamente tokens já emitidos.
+
+## Demonstração estática
+
+`assets/runtime.js` mantém o modo API como padrão. O build de Pages ativa DEMO somente em `dist/`. `api.js` encaminha as operações ao adaptador `demo.js`, que compartilha uma única base entre cliente e administrador e serializa operações. A demonstração é identificada na tela de acesso, no cabeçalho e no rodapé.
+
+Os acessos rápidos abrem os perfis fictícios sem depender da senha atual das contas de exemplo; o login manual continua validando a senha. Senhas de teste são armazenadas como resumo, tokens ficam em memória e dados completos de cartão não são salvos. Isso é uma simulação local, não um mecanismo de segurança de produção.
+
+O armazenamento local é exclusivo da chave `bikes.demo.v1`. Restaurar exemplos exige confirmação e altera apenas essa chave. A navegação, os campos, as notificações e as confirmações reutilizam os mesmos componentes. Fechar um diálogo remove seu conteúdo para evitar campos e IDs duplicados na tela seguinte. O teste `tests/demo-browser.mjs` verifica o fluxo completo sem servidor e os caminhos do subdiretório do repositório.
